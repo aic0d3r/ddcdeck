@@ -54,6 +54,8 @@ func Defaults() map[string]Feature {
 		"mute": {VCP: 0x8D, Type: "enum", Verified: true, Values: map[string]int{
 			"mute": 0x01, "unmute": 0x02,
 		}},
+		// write-only: restores the monitor's own factory defaults (MCCS 0x04)
+		"reset": {VCP: 0x04, Type: "enum", Verified: true, Values: map[string]int{"factory": 1}},
 		"input": {VCP: 0x60, Type: "enum", Verified: true, Values: map[string]int{
 			"vga1": 0x01, "vga2": 0x02, "dvi1": 0x03, "dvi2": 0x04, "dp1": 0x0f, "dp2": 0x10, "hdmi1": 0x11, "hdmi2": 0x12,
 		}},

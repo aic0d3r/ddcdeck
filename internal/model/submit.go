@@ -1,9 +1,16 @@
 package model
 
 import (
+	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
+	"time"
+
+	"github.com/BurntSushi/toml"
 )
 
 // RepoURL is where model files are contributed to and ship from: the repo is the database.
@@ -28,4 +35,53 @@ func (m Model) SubmitURL(toml string) string {
 	return fmt.Sprintf("%s/issues/new?title=%s&body=%s", RepoURL,
 		url.QueryEscape(fmt.Sprintf("Model: %s-%s-%d", m.Mfg, m.Model, m.Product)),
 		url.QueryEscape(m.IssueBody(toml)))
+}
+
+// repoRaw is the base URL Fetch pulls one model file from; a var so tests can point it
+// at a local server.
+var repoRaw = RepoURL + "/raw/master/data/models"
+
+var idPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
+
+// Fetch downloads one community model file into the user model dir and returns its path.
+// This is the opt-in lookup from the design: ddcdeck never checks by itself, and what it
+// downloads is parsed, validated and identity-checked before it is written — these are
+// VCP codes that will be sent to hardware.
+func Fetch(id string) (string, error) {
+	if !idPattern.MatchString(id) {
+		return "", fmt.Errorf("expected MFG-MODEL-PRODUCT like AUS-PA279CRV-10209, got %q", id)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, repoRaw+"/"+id+".toml", nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "ddcdeck")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+	switch {
+	case res.StatusCode == http.StatusNotFound:
+		return "", fmt.Errorf("no community model file for %s — discover it (`ddcdeck discover`) and submit it", id)
+	case res.StatusCode != http.StatusOK:
+		return "", fmt.Errorf("fetch %s: %s", id, res.Status)
+	}
+	b, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+	if err != nil {
+		return "", err
+	}
+	var m Model
+	if _, err := toml.Decode(string(b), &m); err != nil {
+		return "", fmt.Errorf("downloaded file is not a valid model: %v", err)
+	}
+	if err := m.validate(); err != nil {
+		return "", fmt.Errorf("downloaded file rejected: %v", err)
+	}
+	if got := fmt.Sprintf("%s-%s-%d", m.Mfg, m.Model, m.Product); !strings.EqualFold(got, id) {
+		return "", fmt.Errorf("downloaded file identifies %s, not %s", got, id)
+	}
+	return SaveUserModel(m)
 }

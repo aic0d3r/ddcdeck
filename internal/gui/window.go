@@ -228,7 +228,8 @@ func buildDisplay(w *window) *adw.PreferencesPage {
 	a, b := w.a, w.binder
 	var more []string
 	for name := range a.cur.Features {
-		if !slices.Contains(placed, name) {
+		// reset is destructive: it lives behind a confirmation on the Settings page
+		if !slices.Contains(placed, name) && name != "reset" {
 			more = append(more, name)
 		}
 	}
@@ -361,6 +362,33 @@ func buildSettings(w *window) *adw.PreferencesPage {
 	start.ConnectClicked(func() { a.openWizard() })
 	disco.AddSuffix(start)
 	vendor.Add(disco)
+
+	if _, supported := m.Features["reset"]; supported {
+		rst := adw.NewActionRow()
+		rst.SetTitle("Factory reset")
+		rst.SetSubtitle("Every monitor setting back to its defaults; profiles are not affected")
+		btn := gtk.NewButtonWithLabel("Reset…")
+		btn.AddCSSClass("destructive-action")
+		btn.SetVAlign(gtk.AlignCenter)
+		btn.ConnectClicked(func() {
+			confirm := adw.NewAlertDialog("Reset this monitor?", "Brightness, color and input settings go back to factory defaults.")
+			confirm.AddResponse("cancel", "Cancel")
+			confirm.AddResponse("reset", "Reset")
+			confirm.SetResponseAppearance("reset", adw.ResponseDestructive)
+			confirm.SetDefaultResponse("cancel")
+			confirm.ConnectResponse(func(answer string) {
+				if answer != "reset" {
+					return
+				}
+				a.set("reset", "factory")
+				a.toast("Factory reset sent")
+				a.refresh() // every value just changed on the monitor itself
+			})
+			confirm.Present(&w.win.Window)
+		})
+		rst.AddSuffix(btn)
+		vendor.Add(rst)
+	}
 
 	// tier 3: jargon behind one collapsed expander
 	adv := adw.NewExpanderRow()

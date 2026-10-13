@@ -98,6 +98,9 @@ func Register(s *deck.Service, e *Engine) {
 		}
 		prof := Profile{Name: p.Name, Monitors: []ProfileSection{{Match: mon.Model, Fields: map[string]any{}}}}
 		for _, fv := range res.Values {
+			if fv.Feature == "reset" {
+				continue // storing it would factory-reset the monitor on every apply
+			}
 			if len(want) > 0 && !want[fv.Feature] {
 				continue
 			}
@@ -165,6 +168,65 @@ func Register(s *deck.Service, e *Engine) {
 			"shortcuts":   cfg.Shortcut,
 			"unsupported": cfg.Unsupported,
 		}, nil
+	})
+
+	reg("rule.add", func(raw json.RawMessage) (any, error) {
+		var p struct {
+			When    string   `json:"when"`
+			Apply   []string `json:"apply"`
+			Display string   `json:"display,omitempty"`
+		}
+		if err := decode(raw, &p); err != nil {
+			return nil, err
+		}
+		r := Rule{When: p.When, Apply: p.Apply, Display: p.Display}
+		if r.When == "app" {
+			return nil, usage("app rules need a class list: edit rules.toml to add one")
+		}
+		if err := r.validate(); err != nil {
+			return nil, usage("rule: %v", err)
+		}
+		cfg, err := LoadConfig() // fresh from disk, like location.set: never clobber concurrent edits
+		if err != nil {
+			return nil, usage("rules.toml is invalid, fix it first: %v", err)
+		}
+		cfg.Rule = append(cfg.Rule, r)
+		if err := SaveConfig(cfg); err != nil {
+			return nil, &deck.Error{Code: deck.ErrDDC, Message: err.Error()}
+		}
+		e.reload() // live without waiting for the next tick
+		return map[string]any{"added": r.key()}, nil
+	})
+
+	reg("rule.rm", func(raw json.RawMessage) (any, error) {
+		var p struct {
+			ID string `json:"id"`
+		}
+		if err := decode(raw, &p); err != nil {
+			return nil, err
+		}
+		cfg, err := LoadConfig()
+		if err != nil {
+			return nil, usage("rules.toml is invalid, fix it first: %v", err)
+		}
+		kept := cfg.Rule[:0]
+		removed := false
+		for _, r := range cfg.Rule {
+			if r.ID == p.ID {
+				removed = true
+				continue
+			}
+			kept = append(kept, r)
+		}
+		if !removed {
+			return nil, usage("no rule with id %q", p.ID)
+		}
+		cfg.Rule = kept
+		if err := SaveConfig(cfg); err != nil {
+			return nil, &deck.Error{Code: deck.ErrDDC, Message: err.Error()}
+		}
+		e.reload()
+		return map[string]bool{"removed": true}, nil
 	})
 
 	reg("auto.set", func(raw json.RawMessage) (any, error) {

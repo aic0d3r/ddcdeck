@@ -91,6 +91,29 @@ func init() {
 			return nil
 		},
 	})
+	m.AddCommand(&cobra.Command{
+		Use:   "fetch [MFG-MODEL-PRODUCT]",
+		Short: "Download a community model file for this monitor (opt-in lookup)",
+		Long: "Pulls one model file from the repo's data/models/ into ~/.local/share/ddcdeck/models/,\n" +
+			"validates it, and rescans. Nothing is looked up unless you ask: ddcdeck is offline-first.",
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(_ *cobra.Command, a []string) error {
+			id, err := modelID(a)
+			if err != nil {
+				return err
+			}
+			path, err := model.Fetch(id)
+			if err != nil {
+				return err
+			}
+			_ = call("scan", deck.Params{}, nil) // best effort: the daemon picks it up now, not on next scan
+			if !quietFlag {
+				fmt.Println(path)
+				fmt.Println("generate the ddcutil file too: ddcdeck model export-mccs")
+			}
+			return nil
+		},
+	})
 	rootCmd.AddCommand(m)
 }
 

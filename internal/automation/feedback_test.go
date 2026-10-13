@@ -67,3 +67,40 @@ func TestFireNotifiesAndRemembers(t *testing.T) {
 		t.Error("last fire must survive a restart")
 	}
 }
+
+func TestRuleAddRemove(t *testing.T) {
+	e, svc, _ := newEnv(t)
+	Register(svc, e) // what the daemon wires up
+
+	add := func(body string) error {
+		_, err := svc.Handle("rule.add", []byte(body))
+		return err
+	}
+	if err := add(`{"when":"sunset","apply":["night"]}`); err != nil {
+		t.Fatal(err)
+	}
+	if err := add(`{"when":"25:00","apply":["night"]}`); err == nil {
+		t.Fatal("an invalid trigger must be rejected before it is written")
+	}
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Rule) != 1 || cfg.Rule[0].When != "sunset" {
+		t.Fatalf("rule not saved: %+v", cfg.Rule)
+	}
+	id := cfg.Rule[0].ID
+	got := func() int {
+		c, _ := LoadConfig()
+		return len(c.Rule)
+	}
+	if _, err := svc.Handle("rule.rm", mustJSON(map[string]string{"id": id})); err != nil {
+		t.Fatal(err)
+	}
+	if got() != 0 {
+		t.Fatal("rule not removed")
+	}
+	if _, err := svc.Handle("rule.rm", mustJSON(map[string]string{"id": id})); err == nil {
+		t.Fatal("removing twice must fail loudly")
+	}
+}

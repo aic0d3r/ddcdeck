@@ -21,6 +21,11 @@ make install-service   # optional: systemd --user daemon (fast cached reads, eve
 
 Without the daemon the CLI talks to the monitor directly (slower, ~1-3 s per command).
 
+```sh
+ddcdeck model fetch               # your monitor: pull its community model file, if any
+ddcdeck model fetch DEL-U2723QE-41351
+```
+
 On Arch, `packaging/PKGBUILD` builds both packages (`ddcdeck` and `ddcdeck-gui`):
 `makepkg -si` in a copy of that directory.
 
@@ -57,6 +62,10 @@ ddcdeck bluelight schedule sunset    # or "21:00-07:00", or off; --level N
 A fired rule sends a desktop notification ("Sunset → night") and `ddcdeck rules` shows when
 each rule last ran, so a quiet screen is never mistaken for a broken rule. App rules stay
 silent — they would fire on every window switch.
+
+Rules can be edited in the GUI (Automation page: Add…, and the trash button on a rule)
+or by hand; sun/time/hotplug rules need no TOML. Until you set a `[location]`, sun times
+use your timezone's reference city — close enough everywhere in the zone.
 
 App rules (KDE only) apply a profile while any of the listed window classes is focused
 and restore the previous values when focus leaves, e.g. `when = "app"`,
@@ -121,9 +130,12 @@ ddcdeck bluelight toggle          # on | off | set 0-20 (model-file feature)
 ddcdeck input list && ddcdeck input set hdmi1
 ddcdeck colortemp set 6500k
 ddcdeck volume set 40             # also: mute set mute|unmute, power set standby|off
+ddcdeck reset set factory         # every monitor setting back to its defaults
 ddcdeck vcp get E6                # raw escape hatch
 ddcdeck -d DP-8 --json status     # pick a monitor by index, model, serial, connector or ID
+ddcdeck -d all brightness set +10 # every connected monitor at once
 ddcdeck default PA279CRV          # pin the monitor used when -d is omitted
+ddcdeck doctor                    # check ddcutil, i2c, the monitor, daemon, portal, location
 ```
 
 `ddcdeck default` (no arguments) shows what is pinned; `--clear` goes back to the first

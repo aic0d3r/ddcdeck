@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -26,6 +27,7 @@ var featureCmds = []struct {
 	{"volume", "range", "Built-in speaker volume", false},
 	{"mute", "enum", "Built-in speaker mute (set mute|unmute)", false},
 	{"power", "enum", "Power mode (set on|standby|suspend|off)", false},
+	{"reset", "enum", "Reset every monitor setting (set factory)", false},
 }
 
 func init() {
@@ -52,32 +54,61 @@ func init() {
 	}
 }
 
-func getFeature(name string) error {
-	var fv deck.FeatureValue
-	if err := call("get", deck.Params{Feature: name}, &fv); err != nil {
+// eachDisplay runs fn once per connected monitor for `-d all`, once otherwise.
+// An empty display means the daemon picks (the pinned default, else the first).
+func eachDisplay(fn func(display, prefix string) error) error {
+	if displayFlag != "all" {
+		return fn(displayFlag, "")
+	}
+	var res deck.ListResult
+	if err := call("list", nil, &res); err != nil {
 		return err
 	}
-	return printValue(fv)
+	if len(res.Monitors) == 0 {
+		return &deck.Error{Code: deck.ErrNoMonitor, Message: "no DDC monitor found"}
+	}
+	var errs []error
+	for _, m := range res.Monitors {
+		if err := fn(m.ID, m.Model+": "); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", m.Model, err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func getFeature(name string) error {
+	return eachDisplay(func(display, prefix string) error {
+		var fv deck.FeatureValue
+		if err := call("get", deck.Params{Display: display, Feature: name}, &fv); err != nil {
+			return err
+		}
+		if quietFlag {
+			return nil
+		}
+		if jsonFlag { // one object per monitor
+			return printJSON(fv)
+		}
+		fmt.Println(prefix + formatValue(fv))
+		return nil
+	})
 }
 
 func setFeature(name, value string) error {
 	raw, _ := json.Marshal(value)
-	var fv deck.FeatureValue
-	if err := call("set", deck.Params{Feature: name, Value: raw}, &fv); err != nil {
-		return err
-	}
-	if quietFlag {
+	return eachDisplay(func(display, prefix string) error {
+		var fv deck.FeatureValue
+		if err := call("set", deck.Params{Display: display, Feature: name, Value: raw}, &fv); err != nil {
+			return err
+		}
+		if quietFlag {
+			return nil
+		}
+		if jsonFlag {
+			return printJSON(fv)
+		}
+		fmt.Println(prefix + formatValue(fv))
 		return nil
-	}
-	return printValue(fv)
-}
-
-func printValue(fv deck.FeatureValue) error {
-	if jsonFlag {
-		return printJSON(fv)
-	}
-	fmt.Println(formatValue(fv))
-	return nil
+	})
 }
 
 func formatValue(fv deck.FeatureValue) string {

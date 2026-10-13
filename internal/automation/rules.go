@@ -66,7 +66,7 @@ func ConfigPath() string { return filepath.Join(ConfigDir(), "rules.toml") }
 var hhmm = regexp.MustCompile(`^([01]?\d|2[0-3]):[0-5]\d$`)
 
 // LoadConfig reads rules.toml; a missing file is an empty config (defaults applied).
-// Location defaults to Amsterdam, the bluelight script's default, until the user sets one.
+// Location falls back to the timezone's reference city until the user sets one.
 func LoadConfig() (Config, error) {
 	var c Config
 	b, err := os.ReadFile(ConfigPath())
@@ -80,11 +80,11 @@ func LoadConfig() (Config, error) {
 		}
 	}
 	if c.Location.Lat == 0 && c.Location.Lon == 0 {
-		c.Location.Lat, c.Location.Lon = 52.37, 4.90
+		c.Location.Lat, c.Location.Lon = LocationDefault()
 	}
 	for i := range c.Rule {
 		if c.Rule[i].ID == "" {
-			c.Rule[i].ID = fmt.Sprintf("%s|%v|%s", c.Rule[i].When, c.Rule[i].Apply, c.Rule[i].Display)
+			c.Rule[i].ID = c.Rule[i].key()
 		}
 		if err := c.Rule[i].validate(); err != nil {
 			return c, fmt.Errorf("rule %d: %w", i+1, err)
@@ -100,6 +100,9 @@ func LoadConfig() (Config, error) {
 	}
 	return c, nil
 }
+
+// key is the content-derived id of a rule, stable across rewrites of rules.toml.
+func (r Rule) key() string { return fmt.Sprintf("%s|%v|%s", r.When, r.Apply, r.Display) }
 
 func (r Rule) validate() error {
 	switch {
