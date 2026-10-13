@@ -1,0 +1,9 @@
+# ddcutil user-defined features for ASUS ProArt PA279CRV
+# Discovered by toggling OSD settings and diffing getvcp output.
+MFG_ID       AUS
+MODEL        PA279CRV
+PRODUCT_CODE 10209
+
+FEATURE_CODE E6 Blue Light Filter
+# Hardware low-blue-light level, 0 = off, 20 = maximum (OSD level 4)
+  ATTRS RW C

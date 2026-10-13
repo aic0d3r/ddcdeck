@@ -1,0 +1,216 @@
+# DDC Deck — design spec (v1)
+
+A Linux counterpart to ASUS DisplayWidget Center: control monitor features over DDC/CI
+from a GUI, tray, CLI and automation. Works with any DDC monitor; vendor extras (ASUS first)
+come from per-model definition files that users can contribute.
+
+Decisions from the interview (2025-10):
+
+| Topic | Decision |
+|---|---|
+| Name | `ddcdeck` (CLI), `ddcdeckd` (daemon), "DDC Deck" (GUI) |
+| Shape | DWC-style window with sidebar tabs + tray icon |
+| Toolkit | Go + GTK4/libadwaita (same stack as z13gui-plus) |
+| Architecture | user daemon owns DDC; CLI/GUI/tray are socket clients |
+| Scope | any DDC monitor + per-model extras, ASUS first |
+| v1 features | image + blue light, ProArt/Splendid presets, input/KVM, profiles & automation |
+| Triggers | time/sunset, dock/undock, active app, hotkeys |
+| Profiles | partial (only stored fields), stackable |
+| Model support | discovery wizard in CLI + GUI, outputs model file + `.mccs` |
+| Tray | left-click popover, right-click menu |
+| Z13 link | separate repo; optional `on_apply` hooks, z13gui-plus may read the socket API |
+| Build order | daemon + CLI → profiles/triggers → GUI + tray → wizard |
+
+## 1. Architecture
+
+```
+ddcdeckd  (systemd --user, Type=notify)
+ ├─ monitor registry   EDID from /sys/class/drm/*/edid → model file match
+ ├─ DDC queue          one worker per I2C bus, serialized, cached reads
+ ├─ hotplug watcher    udev "drm" change events → re-scan, fire dock/undock
+ ├─ scheduler          fixed times + sunrise/sunset (NOAA, no network)
+ ├─ app watcher        KWin script → D-Bus → active window class
+ ├─ shortcuts          XDG GlobalShortcuts portal
+ └─ API                $XDG_RUNTIME_DIR/ddcdeck.sock (JSON lines)
+        ▲                   ▲                 ▲
+     ddcdeck (CLI)     ddcdeck-gui        tray (in gui process)
+```
+
+- **DDC backend:** v1 shells out to `ddcutil --bus N --noverify`. That keeps the licence
+  separate (libddcutil is GPL) and gets ddcutil's per-monitor quirks for free. If it proves
+  too slow, swap it for raw `/dev/i2c-N` DDC/CI later; everything goes through the same internal `Backend` interface.
+- **Cache:** reads are served from the cache. Writes update the cache optimistically, then
+  re-read once 200 ms later to confirm. The GUI never blocks on I2C.
+- **Identity:** monitors are keyed by `MFG-MODEL-SERIAL` from the EDID, never by bus number
+  (bus numbers change when you re-dock).
+- The CLI falls back to calling the backend directly when the daemon isn't running, so
+  scripts keep working without the daemon.
+
+## 2. CLI
+
+Noun → verb. Every GUI action has exactly one CLI equivalent. `--json` on every read.
+Global flags: `-d, --display <name|serial|index>` (default: the only/primary external monitor),
+`--json`, `-q`.
+
+```
+ddcdeck list                                  # monitors, connector, model, supported features
+ddcdeck status                                # all known features with current values
+
+ddcdeck brightness get | set <0-100|+N|-N>
+ddcdeck contrast   get | set <0-100|+N|-N>
+ddcdeck bluelight  get | on | off | toggle | set <0-20>
+ddcdeck bluelight  schedule sunset|off|"21:00-07:00"
+ddcdeck colortemp  get | set <name>           # names from model file, e.g. 5000k, 6500k
+ddcdeck preset     list | get | set <name>    # srgb, adobergb, dci-p3, rec709, user1 ...
+ddcdeck input      list | get | set <name>    # dp, hdmi1, hdmi2, usbc
+ddcdeck kvm        get | set <upstream>       # if the model supports it
+
+ddcdeck profile    list | show <name> | apply <name>... | save <name> [--fields a,b]
+ddcdeck profile    edit <name> | rm <name>
+ddcdeck auto       status | enable | disable  # pause all triggers
+ddcdeck rules      list                       # active triggers and their next fire time
+
+ddcdeck vcp        get <code> | set <code> <v>  # raw escape hatch
+ddcdeck discover   [--feature <name>]           # guided code discovery, see §6
+ddcdeck model      export-mccs [model]          # write ~/.local/share/ddcutil/*.mccs
+ddcdeck daemon     status | logs
+```
+
+Exit codes: 0 ok, 1 usage, 2 no monitor, 3 feature unsupported, 4 DDC error.
+
+## 3. Socket API
+
+Newline-delimited JSON over `$XDG_RUNTIME_DIR/ddcdeck.sock` (mode 0600), same style as
+z13ctl-plus.
+
+```json
+→ {"id":1,"method":"set","params":{"display":"PA279CRV","feature":"bluelight","value":20}}
+← {"id":1,"result":{"value":20}}
+→ {"id":2,"method":"subscribe","params":{"events":["value","hotplug","profile"]}}
+← {"event":"hotplug","display":"AUS-PA279CRV-TALMSB010776","state":"connected"}
+```
+
+Methods: `list`, `status`, `get`, `set`, `profile.apply|list|save`, `rules.list`,
+`auto.set`, `vcp.get|set`, `subscribe`. Include `api_version` in `list` from day one.
+
+## 4. Config formats
+
+### Model file (source of truth, contributable) — `data/models/<MFG>-<MODEL>-<PRODUCT>.toml`
+
+Maps friendly feature names to VCP codes. `ddcdeck model export-mccs` generates the ddcutil
+`.mccs` from it, so ddcutil and ddcui users benefit too.
+
+### Profiles — `~/.config/ddcdeck/profiles/<name>.toml`
+
+Partial: applying a profile changes only the fields it stores. `apply a b` applies them in order.
+
+```toml
+[monitor.PA279CRV]        # model, serial or "*"
+bluelight  = 20
+brightness = 30
+on_apply   = ["z13ctl-plus preset apply docked"]   # optional shell hooks, no shell expansion
+```
+
+### Rules — `~/.config/ddcdeck/rules.toml`
+
+```toml
+[location]                 # default: guessed from the timezone, editable in the GUI
+lat = 52.37
+lon = 4.90
+
+[[rule]]
+when  = "sunset"           # sunset | sunrise | "HH:MM"
+apply = ["night"]
+
+[[rule]]
+when  = "sunrise"
+apply = ["day"]
+
+[[rule]]
+when    = "connected"      # connected | disconnected
+display = "PA279CRV"
+apply   = ["coding"]
+
+[[rule]]
+when  = "app"              # while focused; reverts the touched fields on blur
+class = ["darktable", "gimp"]
+apply = ["photo"]
+
+[[shortcut]]
+keys   = "Meta+Shift+B"
+action = "bluelight toggle"
+```
+
+Rules fire on **transitions** only. A manual change sticks until the next transition, the
+same behaviour as the current `bluelight auto` script.
+
+## 5. GUI
+
+Libadwaita, DWC layout: `AdwNavigationSplitView`, a monitor picker in the header bar, live
+updates via `subscribe`.
+
+```
+┌─ ☰  [PA279CRV ▾]                          ⏻ auto ─┐
+│ Display   │ ╭ Picture ──────────────────────────╮ │
+│ Color     │ │ Brightness          ━━━━━●───  60 │ │
+│ Input     │ │ Contrast            ━━━━●────  50 │ │
+│ Profiles  │ ╰───────────────────────────────────╯ │
+│ Automation│ ╭ Eye care ─────────────────────────╮ │
+│ Settings  │ │ Blue light filter   [■]  ━━●── 20 │ │
+│           │ │ Schedule            [Sunset ▾]    │ │
+│           │ ╰───────────────────────────────────╯ │
+└───────────┴───────────────────────────────────────┘
+```
+
+| Page | Content |
+|---|---|
+| Display | brightness, contrast, sharpness, blue light + schedule |
+| Color | preset (ProArt/Splendid), color temperature, RGB gain |
+| Input | input source cards, KVM upstream, (later: PiP/PbP) |
+| Profiles | list, apply, "save current as…", per-field checkboxes |
+| Automation | rules list (time/sunset, dock, app, shortcut), location |
+| Settings | model info, unsupported features, "Add support for this monitor" (wizard), raw VCP |
+
+Unsupported features are hidden on the main pages and listed under Settings, never shown greyed out.
+
+**Tray** (StatusNotifierItem): left-click opens a popover with brightness, blue light toggle,
+preset, input and profile chips. Right-click menu: Open DDC Deck, Pause automation, Quit.
+
+Accessibility: every slider has a label and a value readout, works by keyboard, and has no
+colour-only state.
+
+## 6. Discovery wizard
+
+Automates the manual method used to find blue light = `0xE6`:
+
+1. Snapshot every VCP code the monitor lists in its capabilities (plus `E0–FF`).
+2. "In the monitor menu, change **<feature>** to **<value>**, then press Next."
+3. Snapshot again and diff. Exactly one changed code → candidate. More → ask again with
+   another value to narrow it down.
+4. Confirm by writing the value back and asking "did the menu change?"
+5. Write the model TOML + `.mccs`, and offer a prefilled GitHub PR / issue text.
+
+## 7. Milestones
+
+1. **Core:** daemon, cache/queue, EDID registry, CLI basic features, PA279CRV model file,
+   migrate the `~/.local/bin/bluelight` script.
+2. **Automation:** profiles, time/sunset + hotplug rules, shortcuts portal.
+3. **GUI:** window + tray on the socket API.
+4. **Community:** discovery wizard, KWin app watcher, AUR package, docs site.
+
+## 8. Known codes — ASUS PA279CRV (product 10209)
+
+| Feature | VCP | Values | Status |
+|---|---|---|---|
+| Blue light filter | `E6` | 0–20, 0 = off | verified (on/off/levels) |
+| Color preset (MCCS) | `14` | 04 5000K, 05 6500K, 08 9300K, 0e/0f/11 = ? | to map |
+| Input | `60` | 0f DP, 11 HDMI1, 12 HDMI2, 1a = USB-C? | to verify |
+| ProArt preset | `E0`? | current 0x03, max 0x05 | candidate, to diff |
+| Brightness / contrast | `10` / `12` | 0–100 | standard |
+
+Open questions:
+
+- Which OSD blue light level maps to which E6 value? The OSD level the user picked read back as 20.
+- Is there a KVM/USB-upstream code?
+- Can PiP/PbP be controlled over DDC at all?
+- Active-app trigger on GNOME needs a Shell extension; v1 is KWin-only.

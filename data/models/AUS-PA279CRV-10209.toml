@@ -1,0 +1,18 @@
+# ASUS ProArt PA279CRV. Codes found by diffing getvcp before/after OSD changes.
+mfg     = "AUS"
+model   = "PA279CRV"
+product = 10209
+
+[feature.bluelight]
+vcp      = 0xE6
+type     = "range"
+min      = 0
+max      = 20
+off      = 0
+verified = true
+
+[feature.input]
+vcp      = 0x60
+type     = "enum"
+values   = { dp = 0x0f, hdmi1 = 0x11, hdmi2 = 0x12, usbc = 0x1a }  # usbc unverified
+verified = false
