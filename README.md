@@ -15,7 +15,8 @@ Remaining: AUR packaging and more community model files. See [docs/DESIGN.md](do
 Needs Go and `ddcutil` (your user needs access to `/dev/i2c-*`, e.g. via the `i2c` group).
 
 ```sh
-make install           # ~/.local/bin/ddcdeck + ddcdeckd symlink
+make install           # everything: ddcdeck + ddcdeckd + ddcdeck-gui, tray at login
+make install-cli       # headless subset (server/WM-less machines)
 make install-service   # optional: systemd --user daemon (fast cached reads, events)
 ```
 
@@ -36,9 +37,9 @@ On Arch, `packaging/PKGBUILD` builds both packages (`ddcdeck` and `ddcdeck-gui`)
 
 Needs GTK 4, libadwaita ≥ 1.4 and gtk4-layer-shell.
 
-```sh
-make install-gui       # ddcdeck-gui, app menu entry, starts hidden in the tray at login
-```
+The GUI is installed by `make install` above (it needs GTK 4, libadwaita ≥ 1.4 and
+gtk4-layer-shell to build).
+
 
 - Left-click the tray icon: quick panel (brightness, blue light, color, input) next to the icon.
 - Scroll on the tray icon: brightness ±5. Right-click: Open / Quit.
