@@ -27,13 +27,15 @@ type page struct {
 	build             func(w *window) *adw.PreferencesPage // nil page = hidden from the sidebar
 }
 
-var pages = []page{
-	{"display", "Display", "display-brightness-symbolic", buildDisplay},
-	{"color", "Color", "color-management-symbolic", buildColor},
-	{"input", "Input", "video-display-symbolic", buildInput},
-	{"profiles", "Profiles", "starred-symbolic", buildProfiles},
-	{"automation", "Automation", "alarm-symbolic", buildAutomation},
-	{"settings", "Settings", "emblem-system-symbolic", buildSettings},
+func pageList() []page {
+	return []page{
+		{"display", "Display", "display-brightness-symbolic", buildDisplay},
+		{"color", "Color", "color-management-symbolic", buildColor},
+		{"input", "Input", "video-display-symbolic", buildInput},
+		{"profiles", "Profiles", "starred-symbolic", buildProfiles},
+		{"automation", "Automation", "alarm-symbolic", buildAutomation},
+		{"settings", "Settings", "emblem-system-symbolic", buildSettings},
+	}
 }
 
 type window struct {
@@ -65,7 +67,7 @@ func newWindow(a *App) *window {
 	// sidebar
 	w.sidebar = gtk.NewListBox()
 	w.sidebar.AddCSSClass("navigation-sidebar")
-	for _, p := range pages {
+	for _, p := range pageList() {
 		box := gtk.NewBox(gtk.OrientationHorizontal, 12)
 		box.Append(gtk.NewImageFromIconName(p.icon))
 		l := gtk.NewLabel(p.title)
@@ -142,7 +144,7 @@ func (w *window) showStatus(title, detail string) {
 func (w *window) rebuild() {
 	a := w.a
 	visible := w.stack.VisibleChildName()
-	for _, p := range pages {
+	for _, p := range pageList() {
 		if old := w.stack.ChildByName(p.name); old != nil {
 			w.stack.Remove(old)
 		}
@@ -152,7 +154,7 @@ func (w *window) rebuild() {
 	a.addBinder(w.binder)
 
 	first := ""
-	for i, p := range pages {
+	for i, p := range pageList() {
 		pg := p.build(w)
 		w.rows[i].SetVisible(pg != nil)
 		if pg == nil {
@@ -186,7 +188,7 @@ func (w *window) rebuild() {
 }
 
 func (w *window) show(name string) {
-	for i, p := range pages {
+	for i, p := range pageList() {
 		if p.name == name {
 			w.stack.SetVisibleChildName(name)
 			w.content.SetTitle(p.title)
@@ -346,7 +348,11 @@ func unmapped(w *window) *adw.PreferencesGroup {
 	sort.Strings(rows)
 	g := adw.NewPreferencesGroup()
 	g.SetTitle("Reported by the monitor, not mapped")
-	g.SetDescription("Run `ddcdeck discover` in a terminal to map vendor features.")
+	start := gtk.NewButtonWithLabel("Discover…")
+	start.SetTooltipText("Map a vendor feature by changing it in the monitor's OSD")
+	start.SetVAlign(gtk.AlignCenter)
+	start.ConnectClicked(func() { a.openWizard() })
+	g.SetHeaderSuffix(start)
 	for _, r := range rows {
 		row := adw.NewActionRow()
 		row.SetTitle(r)

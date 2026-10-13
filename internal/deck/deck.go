@@ -493,6 +493,12 @@ func (s *Service) handle(method string, raw json.RawMessage, wait *func() error)
 	switch method {
 	case "monitor": // the monitor a selector resolves to, with its features
 		return m, nil
+	case "scan": // re-detect (also reloads model files, e.g. after the wizard saved one)
+		mons, err := s.Scan()
+		if err != nil {
+			return nil, err
+		}
+		return ListResult{APIVersion, mons}, nil
 	case "status":
 		var codes []byte
 		for _, f := range m.Features {

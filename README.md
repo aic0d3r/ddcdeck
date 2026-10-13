@@ -72,6 +72,7 @@ in the monitor's OSD, ddcdeck diffs all ~90 codes and narrows it down:
 ```sh
 ddcdeck discover                  # or: ddcdeck discover --feature kvm
 ddcdeck model export-mccs         # regenerate ~/.local/share/ddcutil/*.mccs for ddcutil users
+# or click "Discover…" in the GUI's Settings page — same flow, saves both files
 ```
 
 The result lands in `~/.local/share/ddcdeck/models/` immediately; submit it as a PR to

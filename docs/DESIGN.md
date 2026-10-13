@@ -188,8 +188,10 @@ consecutive snapshots across OSD changes, infers range/enum from the reading typ
 (C vs NC), collects enum names, confirms with a write-back, then writes the user model
 TOML + `.mccs`. Verified against a real PA279CRV. The GUI shows unmapped codes on the
 Settings page (named via `ddcutil vcpinfo` at runtime — the table is GPL, so it is
-queried, never copied) and points at the CLI wizard; a graphical wizard flow is still
-pending.
+queried, never copied). The Settings page's “Discover…” button opens the graphical
+wizard (AdwDialog, four steps: name → change → details → confirm), driving the same
+engine; after saving it asks the daemon to rescan, so the feature is usable instantly.
+It also puts a prefilled PR text on the clipboard.
 
 Automates the manual method used to find blue light = `0xE6`:
 
