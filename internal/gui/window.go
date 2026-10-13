@@ -237,11 +237,110 @@ func buildDisplay(w *window) *adw.PreferencesPage {
 	return prefsPage(
 		group(a, b, "Picture", "brightness", "contrast", "sharpness"),
 		group(a, b, "Color", "preset", "colortemp"),
-		group(a, b, "Eye care", "bluelight"),
+		buildEyeCare(w),
 		group(a, b, "Audio", "volume", "mute"),
 		group(a, b, "Power", "power"),
 		group(a, b, "More", more...),
 	)
+}
+
+// bluelightScheduleID is the rule id `ddcdeck bluelight schedule` (and the GUI's
+// schedule rows) use to find its own rules again.
+const bluelightScheduleID = "bluelight-schedule"
+
+// buildEyeCare: the blue light rows plus the schedule that switches them — the GUI face
+// of `ddcdeck bluelight schedule`.
+func buildEyeCare(w *window) *adw.PreferencesGroup {
+	a, b := w.a, w.binder
+	g := group(a, b, "Eye care", "bluelight")
+	if g == nil {
+		return nil // no filter feature: no schedule to drive
+	}
+	combo := gtk.NewDropDownFromStrings([]string{"Off", "Sunset", "Fixed times"})
+	combo.SetSelected(0)
+	setA11yLabel(combo, "Blue light schedule")
+	time := gtk.NewEntry()
+	time.SetPlaceholderText("21:00-07:00")
+	setA11yLabel(time, "On and off times")
+	timeRow := adw.NewActionRow()
+	timeRow.SetTitle("Times")
+	timeRow.AddSuffix(time)
+	timeRow.SetVisible(false)
+	combo.Connect("notify::selected", func() { timeRow.SetVisible(combo.Selected() == 2) })
+
+	level := gtk.NewSpinButtonWithRange(0, 20, 1)
+	level.SetValue(20)
+	setA11yLabel(level, "Filter strength when on")
+
+	save := gtk.NewButtonWithLabel("Set")
+	save.AddCSSClass("suggested-action")
+	save.SetVAlign(gtk.AlignCenter)
+	save.ConnectClicked(func() {
+		spec := map[uint]string{0: "off", 1: "sunset"}[combo.Selected()]
+		if spec == "" {
+			spec = strings.TrimSpace(time.Text())
+		}
+		a.call("schedule.set", map[string]any{"spec": spec, "level": int(level.Value())}, nil, func(err error) {
+			if err != nil {
+				a.toast(err.Error())
+				return
+			}
+			a.toast("Blue light schedule: " + spec)
+		})
+	})
+
+	row := adw.NewActionRow()
+	row.SetTitle("Schedule")
+	row.SetSubtitle("On and off automatically; replaces any previous schedule")
+	sched := gtk.NewBox(gtk.OrientationHorizontal, 8)
+	sched.Append(combo)
+	sched.Append(save)
+	row.AddSuffix(sched)
+	row.SetActivatableWidget(combo)
+
+	lvlRow := adw.NewActionRow()
+	lvlRow.SetTitle("Strength when on")
+	lvlRow.AddSuffix(level)
+	g.Add(row)
+	g.Add(timeRow)
+	g.Add(lvlRow)
+
+	// reflect what is configured: the schedule rules and the level profile
+	var res RulesInfo
+	a.call("rules.list", map[string]any{}, &res, func(error) {
+		on, off := "", ""
+		for _, r := range res.Rules {
+			if r.ID != bluelightScheduleID {
+				continue
+			}
+			if r.When == "sunset" || r.When == "sunrise" {
+				combo.SetSelected(1)
+				return
+			}
+			if len(r.Apply) > 0 && r.Apply[0] == "bluelight-on" {
+				on = r.Label
+			} else {
+				off = r.Label
+			}
+		}
+		if on != "" && off != "" {
+			combo.SetSelected(2)
+			time.SetText(on + "-" + off)
+		}
+	})
+	var prof struct {
+		Monitors []struct {
+			Fields map[string]any `json:"fields"`
+		} `json:"monitors"`
+	}
+	a.call("profile.show", map[string]any{"name": "bluelight-on"}, &prof, func(err error) {
+		if err == nil && len(prof.Monitors) > 0 {
+			if v, ok := prof.Monitors[0].Fields["bluelight"].(float64); ok {
+				level.SetValue(v)
+			}
+		}
+	})
+	return g
 }
 
 // buildInput shows inputs as radio rows (one click, current one checked) plus KVM.
@@ -310,28 +409,42 @@ func buildSettings(w *window) *adw.PreferencesPage {
 	// which monitor the CLI and the rules address when -d is left out (shared config.toml)
 	defRow := adw.NewActionRow()
 	defRow.SetTitle("Default monitor for CLI and rules")
-	showDefault := func() {
-		if d := deck.DefaultDisplay(); d != "" {
-			defRow.SetSubtitle("Pinned to “" + d + "”")
-		} else {
-			defRow.SetSubtitle("Not set — the first monitor detected is used")
+	pinnedSel := func() string {
+		if s := m.Serial; s != "" {
+			return s
 		}
+		return m.ID
 	}
-	showDefault()
 	useBtn := gtk.NewButtonWithLabel("Use this monitor")
 	useBtn.SetVAlign(gtk.AlignCenter)
+	showDefault := func() {
+		pinned := deck.DefaultDisplay()
+		if deck.Match([]*deck.Monitor{m}, pinned) != nil {
+			defRow.SetSubtitle("Pinned to this monitor (" + m.Model + ")")
+			useBtn.SetLabel("Unpin")
+		} else if pinned != "" {
+			defRow.SetSubtitle("Pinned to “" + pinned + "”")
+			useBtn.SetLabel("Use this monitor")
+		} else {
+			defRow.SetSubtitle("Not set — the first monitor detected is used")
+			useBtn.SetLabel("Use this monitor")
+		}
+	}
 	useBtn.ConnectClicked(func() {
-		sel := m.Serial
-		if sel == "" {
-			sel = m.ID
+		toast := m.Model + " is now the default monitor"
+		sel := pinnedSel()
+		if deck.Match([]*deck.Monitor{m}, deck.DefaultDisplay()) != nil { // pinned here: clear
+			sel = ""
+			toast = "Default monitor unpinned"
 		}
 		if err := deck.SetDefaultDisplay(sel); err != nil {
 			a.toast(err.Error())
 			return
 		}
 		showDefault()
-		a.toast(m.Model + " is now the default monitor")
+		a.toast(toast)
 	})
+	showDefault()
 	defRow.AddSuffix(useBtn)
 	info.Add(defRow)
 
@@ -348,7 +461,28 @@ func buildSettings(w *window) *adw.PreferencesPage {
 	if m.HasModel && len(known) > 0 {
 		vendor.Add(prop("Community file loaded", "Extra features: "+strings.Join(known, ", ")))
 	} else {
-		vendor.Add(prop("No community file for this model", "Standard features only — discover the rest below."))
+		r := adw.NewActionRow()
+		r.SetTitle("No community file for this model")
+		r.SetSubtitle("Standard features only — fetch one from the database, or discover the rest below")
+		id := fmt.Sprintf("%s-%s-%d", m.Mfg, m.Model, m.Product)
+		fetch := gtk.NewButtonWithLabel("Fetch…")
+		fetch.SetVAlign(gtk.AlignCenter)
+		fetch.SetTooltipText("Look up this model in the community database (one file, opt-in)")
+		fetch.ConnectClicked(func() {
+			fetch.SetSensitive(false)
+			a.call("model.fetch", map[string]any{"id": id}, nil, func(err error) {
+				fetch.SetSensitive(true)
+				if err != nil {
+					a.toast(err.Error()) // usually: none in the database yet
+					return
+				}
+				a.toast("Model file fetched")
+				var res deck.ListResult
+				a.call("list", deck.Params{}, &res, func(error) { a.setMonitors(res.Monitors) })
+			})
+		})
+		r.AddSuffix(fetch)
+		vendor.Add(r)
 	}
 	if missing := missingTitles(m); len(missing) > 0 {
 		vendor.Add(prop("Not available on this monitor", strings.Join(missing, ", ")))
@@ -406,7 +540,53 @@ func buildSettings(w *window) *adw.PreferencesPage {
 	advanced := adw.NewPreferencesGroup()
 	advanced.Add(adv)
 
-	return prefsPage(info, vendor, advanced)
+	return prefsPage(info, vendor, buildDiagnostics(w), advanced)
+}
+
+// diagCheck mirrors one doctor result row.
+type diagCheck struct {
+	Name   string `json:"name"`
+	State  string `json:"state"`
+	Detail string `json:"detail"`
+}
+
+// buildDiagnostics is the GUI's `ddcdeck doctor`: every link in the chain, green or not.
+func buildDiagnostics(w *window) *adw.PreferencesGroup {
+	a := w.a
+	g := adw.NewPreferencesGroup()
+	g.SetTitle("Diagnostics")
+	recheck := gtk.NewButtonFromIconName("view-refresh-symbolic")
+	recheck.SetVAlign(gtk.AlignCenter)
+	recheck.SetTooltipText("Run the checks again")
+	rows := []*adw.ActionRow{}
+	run := func() {
+		var cs []diagCheck
+		a.call("doctor", map[string]any{}, &cs, func(err error) {
+			if err != nil {
+				return // old daemon without the method
+			}
+			for _, r := range rows {
+				g.Remove(r)
+			}
+			rows = rows[:0]
+			for _, c := range cs {
+				row := adw.NewActionRow()
+				row.SetTitle(c.Name)
+				row.SetSubtitle(c.Detail)
+				icon := map[string]string{"ok": "object-select-symbolic", "warn": "dialog-warning-symbolic"}[c.State]
+				if icon == "" {
+					icon = "dialog-error-symbolic" // fail
+				}
+				row.AddPrefix(gtk.NewImageFromIconName(icon))
+				rows = append(rows, row)
+				g.Add(row)
+			}
+		})
+	}
+	recheck.ConnectClicked(run)
+	g.SetHeaderSuffix(recheck)
+	run()
+	return g
 }
 
 func missingTitles(m *deck.Monitor) []string {

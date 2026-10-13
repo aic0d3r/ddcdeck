@@ -4,9 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/aic0d3r/ddcdeck/internal/deck"
+	"github.com/aic0d3r/ddcdeck/internal/diag"
+	"github.com/aic0d3r/ddcdeck/internal/model"
 )
 
 // Register wires the automation API methods into the service and forwards hotplug
@@ -117,6 +121,52 @@ func Register(s *deck.Service, e *Engine) {
 			return nil, &deck.Error{Code: deck.ErrDDC, Message: err.Error()}
 		}
 		s.Emit(deck.Event{Event: "profile", Display: mon.ID, Profile: p.Name, State: "saved"})
+		return prof, nil
+	})
+
+	reg("profile.set", func(raw json.RawMessage) (any, error) {
+		var p struct {
+			Profile Profile `json:"profile"`
+			OldName string  `json:"old_name,omitempty"` // renaming: the file to remove after writing
+		}
+		if err := decode(raw, &p); err != nil {
+			return nil, err
+		}
+		prof := p.Profile
+		if prof.Name == "" {
+			return nil, usage("name is required")
+		}
+		fields := 0
+		for i := range prof.Monitors {
+			if prof.Monitors[i].Match == "" {
+				prof.Monitors[i].Match = "*"
+			}
+			for f, v := range prof.Monitors[i].Fields {
+				switch n := v.(type) { // JSON numbers arrive as float64: whole ones are ints
+				case float64:
+					if n != float64(int64(n)) {
+						return nil, usage("%s: %v must be a whole number or a value name", f, n)
+					}
+					prof.Monitors[i].Fields[f] = int64(n)
+				case string, int64:
+				default:
+					return nil, usage("%s: values must be numbers or names", f)
+				}
+				fields++
+			}
+		}
+		if fields == 0 {
+			return nil, usage("a profile needs at least one field — remove the profile instead of emptying it")
+		}
+		if err := WriteProfile(prof); err != nil { // replace, not merge: dropped fields stay dropped
+			return nil, &deck.Error{Code: deck.ErrDDC, Message: err.Error()}
+		}
+		if p.OldName != "" && p.OldName != prof.Name {
+			if err := DeleteProfile(p.OldName); err != nil {
+				return nil, &deck.Error{Code: deck.ErrDDC, Message: err.Error()}
+			}
+		}
+		s.Emit(deck.Event{Event: "profile", Profile: prof.Name, State: "saved"})
 		return prof, nil
 	})
 
@@ -280,6 +330,60 @@ func Register(s *deck.Service, e *Engine) {
 			return nil, &deck.Error{Code: deck.ErrUsage, Message: err.Error()}
 		}
 		return map[string]bool{"ran": true}, nil
+	})
+
+	reg("doctor", func(json.RawMessage) (any, error) {
+		return diag.Run(s), nil
+	})
+
+	reg("schedule.set", func(raw json.RawMessage) (any, error) {
+		var p struct {
+			Spec  string `json:"spec"`
+			Level int    `json:"level"`
+		}
+		if err := decode(raw, &p); err != nil {
+			return nil, err
+		}
+		if p.Level == 0 {
+			p.Level = 20
+		}
+		if err := SetBlueLightSchedule(p.Spec, p.Level); err != nil {
+			return nil, usage("%v", err)
+		}
+		e.reload()
+		return map[string]any{"schedule": p.Spec, "level": p.Level}, nil
+	})
+
+	reg("model.fetch", func(raw json.RawMessage) (any, error) {
+		var p struct {
+			ID string `json:"id,omitempty"`
+		}
+		if err := decode(raw, &p); err != nil {
+			return nil, err
+		}
+		id := p.ID
+		if id == "" { // the monitor the caller selected, when it's the daemon's caller
+			r, err := s.Handle("monitor", raw)
+			if err != nil {
+				return nil, err
+			}
+			if m, ok := r.(*deck.Monitor); ok {
+				id = fmt.Sprintf("%s-%s-%d", m.Mfg, m.Model, m.Product)
+			}
+		}
+		path, err := model.Fetch(id)
+		if err != nil {
+			return nil, &deck.Error{Code: deck.ErrDDC, Message: err.Error()}
+		}
+		if mm, err := model.LoadProfileModel(path); err == nil { // ddcutil users get it too
+			if mkErr := os.MkdirAll(model.DdcutilDir(), 0o700); mkErr == nil {
+				_ = os.WriteFile(filepath.Join(model.DdcutilDir(), id+".mccs"), []byte(mm.MCCS()), 0o600)
+			}
+		}
+		if _, err := s.Handle("scan", nil); err != nil { // usable at once
+			slog.Warn("model fetched but rescan failed", "err", err)
+		}
+		return map[string]string{"path": path}, nil
 	})
 
 	// hotplug events drive connected/disconnected rules

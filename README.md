@@ -26,6 +26,9 @@ ddcdeck model fetch               # your monitor: pull its community model file,
 ddcdeck model fetch DEL-U2723QE-41351
 ```
 
+(Settings has a Fetch… button for the same lookup; it appears when a monitor has no
+community file yet.)
+
 On Arch, `packaging/PKGBUILD` builds both packages (`ddcdeck` and `ddcdeck-gui`):
 `makepkg -si` in a copy of that directory.
 
@@ -45,6 +48,8 @@ make install-gui       # ddcdeck-gui, app menu entry, starts hidden in the tray 
   whichever is in use). Set `DDCDECK_DEBUG=1` for logs.
 - Numbers you did not change in the app (a brightness change made with the monitor's own
   buttons) are re-read from the monitor while the window is on screen.
+- The Display page carries the blue light schedule (`ddcdeck bluelight schedule`), and
+  Settings has the same checks as `ddcdeck doctor` under Diagnostics.
 
 ## Profiles and automation
 
@@ -63,9 +68,16 @@ A fired rule sends a desktop notification ("Sunset → night") and `ddcdeck rule
 each rule last ran, so a quiet screen is never mistaken for a broken rule. App rules stay
 silent — they would fire on every window switch.
 
-Rules can be edited in the GUI (Automation page: Add…, and the trash button on a rule)
-or by hand; sun/time/hotplug rules need no TOML. Until you set a `[location]`, sun times
+Rules and profiles are fully editable in either place: the GUI has Add…/trash per rule
+and edit/trash per profile, the CLI has `ddcdeck rule add|rm` and
+`profile save|edit|rm` — the same calls underneath. Sun/time/hotplug rules need no TOML. Until you set a `[location]`, sun times
 use your timezone's reference city — close enough everywhere in the zone.
+
+```sh
+ddcdeck rule add sunset night     # or a time (21:30), connected, disconnected
+ddcdeck rule rm sunset|[night]|   # ids are listed by `ddcdeck rules`
+ddcdeck rule location 52.37 4.90  # for sun rules (defaults to your timezone's city)
+```
 
 App rules (KDE only) apply a profile while any of the listed window classes is focused
 and restore the previous values when focus leaves, e.g. `when = "app"`,

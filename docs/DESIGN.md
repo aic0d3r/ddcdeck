@@ -72,6 +72,7 @@ ddcdeck power      set <on|standby|suspend|off>  # VCP D6
 ddcdeck default [selector] [--clear]          # pin the monitor used when -d is omitted
 ddcdeck profile    list | show <name> | apply <name>... | save <name> [--fields a,b]
 ddcdeck profile    edit <name> | rm <name>
+ddcdeck rule       add <when> <profile>... | rm <id> | location [lat lon]
 ddcdeck auto       status | enable | disable  # pause all triggers
 ddcdeck rules      list                       # active triggers and their next fire time
 
@@ -185,9 +186,9 @@ updates via `subscribe`.
 | Display | brightness, contrast, sharpness, blue light + schedule |
 | Color | preset (ProArt/Splendid), color temperature, RGB gain |
 | Input | input source cards, KVM upstream, (later: PiP/PbP) |
-| Profiles | list, apply, "save current as…", per-field checkboxes |
+| Profiles | list, apply, "save current as…", edit (rename/values/drop fields), remove |
 | Automation | rules list (time/sunset, dock, app, shortcut), location |
-| Settings | model info, unsupported features, "Add support for this monitor" (wizard), raw VCP |
+| Settings | model info, community-file fetch, unsupported features, "Add support for this monitor" (wizard), diagnostics (= `doctor`), default monitor pin, raw VCP |
 
 Unsupported features are hidden on the main pages and listed under Settings, never shown greyed out.
 
@@ -261,6 +262,15 @@ Automates the manual method used to find blue light = `0xE6`:
   appear when rules.toml declares none. They are display-only: `SaveConfig` never writes them.
 - **Logs without systemd** — the GUI-spawned daemon writes `~/.cache/ddcdeck/daemon.log`
   (`DDCDECK_LOG`), which `ddcdeck daemon logs` prefers over the journal.
+
+**Parity pass (2026-10): every action works in both the GUI and the CLI.** CLI gained
+`rule add|rm|location` (the GUI's rule editor); the GUI gained the blue light schedule
+(the CLI's `bluelight schedule`, via `schedule.set`), model Fetch… (`model.fetch`),
+Diagnostics (`doctor`, shared `internal/diag`), profile edit/remove (`profile.set`,
+replace semantics — merging would resurrect dropped fields), and default-monitor
+pin/unpin (`ddcdeck default --clear`). Deliberately CLI-only: `daemon run|logs` (terminal
+output), `model export-mccs` (the wizard and `model.fetch` write the file themselves),
+`vcp get/set` has its Settings rows, `discover` has the wizard dialog.
 
 **Basics pass 2 (2026-10).** The rest of the first-day gaps:
 

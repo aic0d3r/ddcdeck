@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/aic0d3r/ddcdeck/internal/location"
 )
 
 // Rule is one automation trigger. App rules (KWin watcher) parse but stay inactive until
@@ -80,7 +82,7 @@ func LoadConfig() (Config, error) {
 		}
 	}
 	if c.Location.Lat == 0 && c.Location.Lon == 0 {
-		c.Location.Lat, c.Location.Lon = LocationDefault()
+		c.Location.Lat, c.Location.Lon = location.Default()
 	}
 	for i := range c.Rule {
 		if c.Rule[i].ID == "" {

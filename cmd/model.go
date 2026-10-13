@@ -102,14 +102,14 @@ func init() {
 			if err != nil {
 				return err
 			}
-			path, err := model.Fetch(id)
-			if err != nil {
+			var res struct {
+				Path string `json:"path"`
+			}
+			if err := call("model.fetch", map[string]any{"id": id}, &res); err != nil {
 				return err
 			}
-			_ = call("scan", deck.Params{}, nil) // best effort: the daemon picks it up now, not on next scan
 			if !quietFlag {
-				fmt.Println(path)
-				fmt.Println("generate the ddcutil file too: ddcdeck model export-mccs")
+				fmt.Println(res.Path)
 			}
 			return nil
 		},

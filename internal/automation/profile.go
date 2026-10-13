@@ -51,9 +51,18 @@ func LoadProfiles() ([]Profile, error) {
 	return ps, nil
 }
 
+// badProfileName rejects names that would not stay inside the profiles dir.
+func badProfileName(name string) bool {
+	return name == "" || name == "." || name == ".." ||
+		strings.ContainsAny(name, `/\`) || strings.Contains(name, "..")
+}
+
 // LoadProfile reads one profile. Unknown TOML types in fields are an error, not a crash.
 func LoadProfile(name string) (Profile, error) {
 	p := Profile{Name: name}
+	if badProfileName(name) {
+		return p, fmt.Errorf("bad profile name %q", name)
+	}
 	b, err := os.ReadFile(filepath.Join(ProfilesDir(), name+".toml"))
 	if os.IsNotExist(err) {
 		return p, fmt.Errorf("no profile named %q", name)
@@ -113,6 +122,9 @@ func order(match string) int {
 // SaveProfile writes a profile, merging into an existing file: fields for a match are
 // replaced, other sections and on_apply lists are kept.
 func SaveProfile(p Profile) error {
+	if badProfileName(p.Name) {
+		return fmt.Errorf("bad profile name %q", p.Name)
+	}
 	if err := os.MkdirAll(ProfilesDir(), 0o700); err != nil {
 		return err
 	}
@@ -156,11 +168,51 @@ func SaveProfile(p Profile) error {
 		}
 		b.WriteByte('\n')
 	}
-	return os.WriteFile(filepath.Join(ProfilesDir(), p.Name+".toml"), []byte(b.String()), 0o600)
+	return WriteProfile(p)
+}
+
+// WriteProfile replaces the file outright — what editing needs (SaveProfile merges, so a
+// removed field would survive it). The caller validates.
+func WriteProfile(p Profile) error {
+	if badProfileName(p.Name) {
+		return fmt.Errorf("bad profile name %q", p.Name)
+	}
+	if err := os.MkdirAll(ProfilesDir(), 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(ProfilesDir(), p.Name+".toml"), []byte(renderProfile(p)), 0o600)
+}
+
+// renderProfile serializes a profile in the documented rules format.
+func renderProfile(p Profile) string {
+	var b strings.Builder
+	for _, s := range p.Monitors {
+		fmt.Fprintf(&b, "[monitor.%q]\n", s.Match)
+		keys := make([]string, 0, len(s.Fields))
+		for k := range s.Fields {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			if name, ok := s.Fields[k].(string); ok {
+				fmt.Fprintf(&b, "%s = %q\n", k, name)
+			} else {
+				fmt.Fprintf(&b, "%s = %v\n", k, s.Fields[k])
+			}
+		}
+		for _, c := range s.OnApply {
+			fmt.Fprintf(&b, "on_apply = [%q]\n", c)
+		}
+		b.WriteByte('\n')
+	}
+	return b.String()
 }
 
 // DeleteProfile removes a profile file.
 func DeleteProfile(name string) error {
+	if badProfileName(name) {
+		return fmt.Errorf("bad profile name %q", name)
+	}
 	err := os.Remove(filepath.Join(ProfilesDir(), name+".toml"))
 	if os.IsNotExist(err) {
 		return fmt.Errorf("no profile named %q", name)

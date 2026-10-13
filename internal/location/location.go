@@ -1,4 +1,8 @@
-package automation
+// Package location resolves the user's approximate coordinates from their timezone:
+// the zone's reference city, read from the system's own tzdata (zone.tab/zone1970.tab).
+// Sun times are the same across a whole zone to within a few minutes, so this is a good
+// default until a precise location is set.
+package location
 
 import (
 	"os"
@@ -18,7 +22,7 @@ var zoneTabPaths = []string{
 
 // LocationDefault is the fallback when rules.toml has no [location]: the local timezone's
 // reference city, else the migrated bluelight script's default.
-func LocationDefault() (float64, float64) {
+func Default() (float64, float64) {
 	if lat, lon, ok := tzLocation(localZone()); ok {
 		return lat, lon
 	}

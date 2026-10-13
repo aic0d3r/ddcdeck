@@ -214,6 +214,9 @@ func (r rulesResult) render() {
 		if rule.LastFire != "" {
 			line += ", last: " + rule.LastFire // "did it fire, or is it broken?"
 		}
+		if rule.ID != "" { // the id `ddcdeck rule rm` wants
+			line += "  [" + rule.ID + "]"
+		}
 		fmt.Println(line)
 	}
 	for _, sc := range r.Shortcuts {

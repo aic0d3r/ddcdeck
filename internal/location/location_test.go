@@ -1,4 +1,4 @@
-package automation
+package location
 
 import (
 	"math"
@@ -41,13 +41,13 @@ func TestLocationDefaultFromZoneTab(t *testing.T) {
 	t.Cleanup(func() { zoneTabPaths = old })
 
 	t.Setenv("TZ", "America/Sao_Paulo")
-	lat, lon := LocationDefault()
+	lat, lon := Default()
 	if math.Abs(lat-(-(23+32.0/60))) > 1e-9 || math.Abs(lon-(-(46+37.0/60))) > 1e-9 {
 		t.Errorf("Sao Paulo guessed as (%.4f, %.4f)", lat, lon)
 	}
 
 	t.Setenv("TZ", "Mars/Olympus_Mons") // no such zone: the documented last resort
-	if lat, lon := LocationDefault(); lat != 52.37 || lon != 4.90 {
+	if lat, lon := Default(); lat != 52.37 || lon != 4.90 {
 		t.Errorf("unknown zone must keep the old default, got (%.4f, %.4f)", lat, lon)
 	}
 }

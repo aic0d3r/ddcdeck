@@ -104,6 +104,36 @@ func (w *window) rebuildProfiles() {
 					}
 				})
 			})
+			edit := gtk.NewButtonFromIconName("document-edit-symbolic")
+			edit.SetVAlign(gtk.AlignCenter)
+			edit.SetTooltipText("Edit this profile")
+			edit.ConnectClicked(func() { w.editProfileDialog(profileFromList(p)) })
+			del := gtk.NewButtonFromIconName("user-trash-symbolic")
+			del.SetVAlign(gtk.AlignCenter)
+			del.SetTooltipText("Remove this profile")
+			del.ConnectClicked(func() {
+				confirm := adw.NewAlertDialog("Remove "+p.Name+"?", "The stored settings are deleted. The monitor keeps its current values.")
+				confirm.AddResponse("cancel", "Cancel")
+				confirm.AddResponse("remove", "Remove")
+				confirm.SetResponseAppearance("remove", adw.ResponseDestructive)
+				confirm.SetDefaultResponse("cancel")
+				confirm.ConnectResponse(func(answer string) {
+					if answer != "remove" {
+						return
+					}
+					w.a.call("profile.rm", map[string]any{"name": p.Name}, nil, func(err error) {
+						if err != nil {
+							w.a.toast(err.Error())
+							return
+						}
+						w.a.toast("Removed " + p.Name)
+						w.rebuildProfiles()
+					})
+				})
+				confirm.Present(&w.win.Window)
+			})
+			row.AddSuffix(edit)
+			row.AddSuffix(del)
 			row.AddSuffix(btn)
 			w.profRows = append(w.profRows, row)
 			g.Add(row)
@@ -439,4 +469,166 @@ func (w *window) addRuleDialog() {
 		})
 		dlg.Present(&w.win.Window)
 	})
+}
+
+// profileFromList copies the JSON-decoded profile into the API's profile type.
+func profileFromList(p struct {
+	Name     string `json:"name"`
+	Monitors []struct {
+		Match   string         `json:"match"`
+		Fields  map[string]any `json:"fields"`
+		OnApply []string       `json:"on_apply"`
+	} `json:"monitors"`
+}) (prof struct {
+	Name     string `json:"name"`
+	Monitors []struct {
+		Match   string         `json:"match"`
+		Fields  map[string]any `json:"fields"`
+		OnApply []string       `json:"on_apply"`
+	} `json:"monitors"`
+}) {
+	prof.Name = p.Name
+	prof.Monitors = p.Monitors
+	return prof
+}
+
+// editProfileDialog edits what a profile stores: rename it, change values, drop fields.
+// Replacing happens wholesale (profile.set), so dropped fields stay dropped.
+func (w *window) editProfileDialog(p struct {
+	Name     string `json:"name"`
+	Monitors []struct {
+		Match   string         `json:"match"`
+		Fields  map[string]any `json:"fields"`
+		OnApply []string       `json:"on_apply"`
+	} `json:"monitors"`
+}) {
+	a := w.a
+	dlg := adw.NewAlertDialog("Edit profile", "Rename, adjust values, or untick a field to drop it")
+	dlg.AddResponse("cancel", "Cancel")
+	dlg.AddResponse("save", "Save")
+	dlg.SetResponseAppearance("save", adw.ResponseSuggested)
+	dlg.SetDefaultResponse("save")
+
+	box := gtk.NewBox(gtk.OrientationVertical, 12)
+	box.SetMarginTop(6)
+
+	name := gtk.NewEntry()
+	name.SetText(p.Name)
+	setA11yLabel(name, "Profile name")
+	nameRow := adw.NewActionRow()
+	nameRow.SetTitle("Name")
+	nameRow.AddSuffix(name)
+	box.Append(nameRow)
+
+	type field struct {
+		check  *gtk.CheckButton
+		editor gtk.Widgetter
+		read   func() any
+	}
+	sections := []struct {
+		match  string
+		fields map[string]*field
+	}{}
+
+	for _, sec := range p.Monitors {
+		s := struct {
+			match  string
+			fields map[string]*field
+		}{match: sec.Match, fields: map[string]*field{}}
+		g := adw.NewPreferencesGroup()
+		g.SetTitle("For " + sec.Match)
+		for _, fname := range keysOf(sec.Fields) {
+			fname := fname
+			row := adw.NewActionRow()
+			row.SetTitle(title(fname))
+			chk := gtk.NewCheckButton()
+			chk.SetActive(true)
+			row.AddPrefix(chk)
+			var rd func() any
+			switch v := sec.Fields[fname].(type) {
+			case float64: // JSON number: a range value
+				spin := gtk.NewSpinButtonWithRange(0, 65535, 1)
+				spin.SetValue(v)
+				setA11yLabel(spin, title(fname)+" value")
+				row.AddSuffix(spin)
+				rd = func() any { return int(spin.Value()) }
+			case string: // an enum value name: offer the monitor's values when we know them
+				f, known := a.cur.Features[fname]
+				if known && len(f.Values) > 0 {
+					names := slices.Sorted(maps.Keys(f.Values))
+					if !slices.Contains(names, v) { // a name this monitor doesn't list: keep it choosable
+						names = append(names, v)
+					}
+					drop := gtk.NewDropDownFromStrings(names)
+					drop.SetSelected(uint(max(slices.Index(names, v), 0)))
+					setA11yLabel(drop, title(fname)+" value")
+					row.AddSuffix(drop)
+					rd = func() any { return names[drop.Selected()] }
+				} else {
+					e := gtk.NewEntry()
+					e.SetText(v)
+					setA11yLabel(e, title(fname)+" value")
+					row.AddSuffix(e)
+					rd = func() any { return e.Text() }
+				}
+			default:
+				continue
+			}
+			g.Add(row)
+			s.fields[fname] = &field{check: chk, read: rd}
+		}
+		box.Append(g)
+		sections = append(sections, struct {
+			match  string
+			fields map[string]*field
+		}{s.match, s.fields})
+	}
+	dlg.SetExtraChild(box)
+	dlg.ConnectResponse(func(answer string) {
+		if answer != "save" {
+			return
+		}
+		newName := strings.TrimSpace(name.Text())
+		if newName == "" {
+			a.toast("Profile needs a name")
+			return
+		}
+		type secOut struct {
+			Match   string         `json:"match"`
+			Fields  map[string]any `json:"fields"`
+			OnApply []string       `json:"on_apply,omitempty"`
+		}
+		out := struct {
+			Name     string   `json:"name"`
+			Monitors []secOut `json:"monitors"`
+		}{Name: newName}
+		kept := 0
+		for i, sec := range sections {
+			fields := map[string]any{}
+			for fname, f := range sec.fields {
+				if f.check.Active() {
+					fields[fname] = f.read()
+					kept++
+				}
+			}
+			out.Monitors = append(out.Monitors, secOut{Match: sec.match, Fields: fields, OnApply: p.Monitors[i].OnApply})
+		}
+		if kept == 0 {
+			a.toast("A profile needs at least one field")
+			return
+		}
+		a.call("profile.set", map[string]any{"profile": out, "old_name": p.Name}, nil, func(err error) {
+			if err != nil {
+				a.toast(err.Error())
+				return
+			}
+			if newName != p.Name {
+				a.toast("Saved as " + newName)
+			} else {
+				a.toast("Saved " + newName)
+			}
+			w.rebuildProfiles()
+		})
+	})
+	dlg.Present(&w.win.Window)
 }

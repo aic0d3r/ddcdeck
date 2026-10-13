@@ -104,3 +104,49 @@ func TestRuleAddRemove(t *testing.T) {
 		t.Fatal("removing twice must fail loudly")
 	}
 }
+
+func TestProfileSetReplacesAndRenames(t *testing.T) {
+	e, svc, _ := newEnv(t)
+	Register(svc, e)
+	writeProfile(t, "night", "[monitor.\"*\"]\nbrightness = 25\nbluelight = 10\n")
+
+	prof := struct {
+		Profile Profile `json:"profile"`
+		OldName string  `json:"old_name"`
+	}{Profile: Profile{Name: "night", Monitors: []ProfileSection{{
+		Match: "*", Fields: map[string]any{"brightness": 20.0}, // JSON floats arrive as float64
+	}}}}
+	if _, err := svc.Handle("profile.set", mustJSON(prof)); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadProfile("night")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, still := got.Monitors[0].Fields["bluelight"]; still {
+		t.Fatal("profile.set must replace, not merge — a dropped field has to stay dropped")
+	}
+	if got.Monitors[0].Fields["brightness"] != int64(20) {
+		t.Fatalf("value not written/normalized: %#v", got.Monitors[0].Fields["brightness"])
+	}
+
+	prof.Profile.Name = "dark"
+	prof.OldName = "night"
+	if _, err := svc.Handle("profile.set", mustJSON(prof)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadProfile("dark"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadProfile("night"); err == nil {
+		t.Fatal("rename must remove the old file")
+	}
+	// an empty profile is a delete, not a save
+	prof.Profile.Monitors[0].Fields = map[string]any{}
+	if _, err := svc.Handle("profile.set", mustJSON(prof)); err == nil {
+		t.Fatal("emptying a profile must be rejected (remove it instead)")
+	}
+	if _, err := svc.Handle("profile.set", mustJSON(struct{ Profile Profile }{Profile{Name: "../escape"}})); err == nil {
+		t.Fatal("names must stay inside the profiles dir")
+	}
+}
