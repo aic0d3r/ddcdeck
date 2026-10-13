@@ -62,9 +62,10 @@ type Monitor struct {
 
 // Event is pushed to subscribers.
 type Event struct {
-	Event   string `json:"event"` // "value" | "hotplug"
+	Event   string `json:"event"` // "value" | "hotplug" | "profile" | "rule" | "auto"
 	Display string `json:"display"`
 	Feature string `json:"feature,omitempty"`
+	Profile string `json:"profile,omitempty"`
 	Value   *int   `json:"value,omitempty"`
 	State   string `json:"state,omitempty"` // hotplug: "connected" | "disconnected"
 }
@@ -87,11 +88,12 @@ type Service struct {
 
 	mu      sync.Mutex
 	mons    []*Monitor
-	caps    map[string]ddc.Caps        // by monitor ID, survives re-scans
-	cache   map[string]map[byte]cached // by monitor ID
-	buses   map[int]*sync.Mutex        // one I2C transaction at a time per bus
-	pending map[wkey]int               // latest value waiting to be written
-	writing map[wkey]bool              // a writer goroutine owns this key
+	caps    map[string]ddc.Caps                           // by monitor ID, survives re-scans
+	cache   map[string]map[byte]cached                    // by monitor ID
+	buses   map[int]*sync.Mutex                           // one I2C transaction at a time per bus
+	pending map[wkey]int                                  // latest value waiting to be written
+	ext     map[string]func(json.RawMessage) (any, error) // methods added by automation
+	writing map[wkey]bool                                 // a writer goroutine owns this key
 	subs    map[chan Event]struct{}
 }
 
@@ -471,6 +473,9 @@ func (s *Service) handle(method string, raw json.RawMessage, wait *func() error)
 		defer s.mu.Unlock()
 		return ListResult{APIVersion, s.mons}, nil
 	}
+	if fn, ok := s.ext[method]; ok {
+		return fn(raw)
+	}
 	m, err := s.find(p.Display)
 	if err != nil {
 		return nil, err
@@ -581,4 +586,18 @@ func (s *Service) emit(e Event) {
 		default: // slow subscriber drops events rather than blocking DDC
 		}
 	}
+}
+
+// Emit publishes an event to all subscribers (used by automation for profile/rule/auto events).
+func (s *Service) Emit(e Event) { s.emit(e) }
+
+// Extend registers an extra API method, so packages that import deck (automation) can add
+// methods without deck importing them back.
+func (s *Service) Extend(method string, fn func(raw json.RawMessage) (any, error)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.ext == nil {
+		s.ext = map[string]func(json.RawMessage) (any, error){}
+	}
+	s.ext[method] = fn
 }

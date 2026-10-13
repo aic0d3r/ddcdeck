@@ -33,6 +33,30 @@ make install-gui       # ddcdeck-gui, app menu entry, starts hidden in the tray 
 - The GUI starts the daemon if needed (`systemctl --user start ddcdeckd`, else it runs
   `ddcdeckd` directly). Set `DDCDECK_DEBUG=1` for logs.
 
+## Profiles and automation
+
+```sh
+ddcdeck profile save night           # store the current state (all supported features)
+ddcdeck profile save day --fields brightness,bluelight
+ddcdeck profile apply night          # several: applied in order, only stored fields change
+ddcdeck profile list | show night | edit night | rm night
+
+ddcdeck rules                        # triggers, next fire time, shortcuts, auto state
+ddcdeck auto disable | enable        # pause/resume all triggers
+ddcdeck bluelight schedule sunset    # or "21:00-07:00", or off; --level N
+```
+
+Rules live in `~/.config/ddcdeck/rules.toml`, profiles in `~/.config/ddcdeck/profiles/*.toml`
+(see [docs/DESIGN.md](docs/DESIGN.md) for the format). Sun rules use an offline NOAA
+calculation from `[location]` and fire on transitions, including ones missed while the
+daemon was down. `connected`/`disconnected` rules fire on hotplug. Tool-written config
+rewrites lose comments.
+
+**Global shortcuts** are registered through the XDG GlobalShortcuts portal from the GUI:
+assign keys in *System Settings → Shortcuts → DDC Deck* (the `keys` value in rules.toml is
+a documented suggestion). The portal only accepts apps launched from the desktop entry or
+autostart, not from a terminal.
+
 ## Usage
 
 ```sh

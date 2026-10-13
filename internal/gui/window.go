@@ -26,22 +26,26 @@ var pages = []page{
 	{"display", "Display", "display-brightness-symbolic", buildDisplay},
 	{"color", "Color", "color-management-symbolic", buildColor},
 	{"input", "Input", "video-display-symbolic", buildInput},
+	{"profiles", "Profiles", "starred-symbolic", buildProfiles},
+	{"automation", "Automation", "alarm-symbolic", buildAutomation},
 	{"settings", "Settings", "emblem-system-symbolic", buildSettings},
 }
 
 type window struct {
-	a       *App
-	win     *adw.ApplicationWindow
-	toasts  *adw.ToastOverlay
-	split   *adw.NavigationSplitView
-	sidebar *gtk.ListBox
-	rows    []*gtk.ListBoxRow
-	content *adw.NavigationPage
-	stack   *gtk.Stack
-	status  *adw.StatusPage
-	picker  *gtk.DropDown
-	pickerH coreglib.SignalHandle // handler id, blocked while the model is replaced
-	binder  *binder
+	a         *App
+	win       *adw.ApplicationWindow
+	toasts    *adw.ToastOverlay
+	split     *adw.NavigationSplitView
+	sidebar   *gtk.ListBox
+	rows      []*gtk.ListBoxRow
+	content   *adw.NavigationPage
+	stack     *gtk.Stack
+	status    *adw.StatusPage
+	picker    *gtk.DropDown
+	pickerH   coreglib.SignalHandle // handler id, blocked while the model is replaced
+	profGroup *adw.PreferencesGroup
+	profRows  []*adw.ActionRow
+	binder    *binder
 }
 
 func newWindow(a *App) *window {
@@ -84,6 +88,16 @@ func newWindow(a *App) *window {
 	w.pickerH = w.picker.Connect("notify::selected", func() { a.selectMonitor(int(w.picker.Selected())) })
 	hb := adw.NewHeaderBar()
 	hb.SetTitleWidget(w.picker)
+	autoBtn := gtk.NewToggleButton()
+	autoBtn.SetIconName("alarm-symbolic")
+	autoBtn.SetTooltipText("Automation running — click to pause")
+	autoBtn.ConnectToggled(func() {
+		if !a.syncing {
+			a.setAuto(autoBtn.Active())
+		}
+	})
+	a.autoToggle = autoBtn
+	hb.PackEnd(autoBtn)
 	w.stack = gtk.NewStack()
 	w.stack.SetTransitionType(gtk.StackTransitionTypeCrossfade)
 	w.status = adw.NewStatusPage()

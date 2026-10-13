@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/aic0d3r/ddcdeck/internal/automation"
 	"github.com/aic0d3r/ddcdeck/internal/ddc"
 	"github.com/aic0d3r/ddcdeck/internal/deck"
 	"github.com/aic0d3r/ddcdeck/internal/model"
@@ -86,21 +87,25 @@ func (l local) Call(method string, params, out any) error {
 	return json.Unmarshal(b, out)
 }
 
-func newService() (*deck.Service, error) {
+func newService() (*deck.Service, *automation.Engine, error) {
 	models, err := model.Load()
 	if err != nil {
 		slog.Warn("some model files were skipped", "err", err)
 	}
 	s := deck.New(ddc.Ddcutil{}, models)
 	_, err = s.Scan()
-	return s, err
+	// automation methods are registered even without the daemon: the CLI fallback and the
+	// daemon share them; the engine's scheduler only runs in the daemon
+	eng := automation.NewEngine(s)
+	automation.Register(s, eng)
+	return s, eng, err
 }
 
 func connect() (caller, error) {
 	if c, err := deck.Dial(deck.SocketPath()); err == nil {
 		return c, nil
 	}
-	s, err := newService()
+	s, _, err := newService()
 	if err != nil {
 		return nil, err
 	}
@@ -108,13 +113,15 @@ func connect() (caller, error) {
 }
 
 // call runs one API method against the daemon (or in-process) and decodes into out.
-func call(method string, params deck.Params, out any) error {
+// params may be a deck.Params or any JSON-marshalable value.
+func call(method string, params any, out any) error {
 	c, err := connect()
 	if err != nil {
 		return err
 	}
-	if params.Display == "" {
-		params.Display = displayFlag
+	if p, ok := params.(deck.Params); ok && p.Display == "" {
+		p.Display = displayFlag
+		params = p
 	}
 	return c.Call(method, params, out)
 }

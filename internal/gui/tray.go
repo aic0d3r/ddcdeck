@@ -20,13 +20,23 @@ func startTray(a *App) {
 	systray.SetOnTapped(func() {}) // must be set before start: makes ItemIsMenu false; real handler below
 	start, _ := systray.RunWithExternalLoop(func() {
 		open := systray.AddMenuItem("Open DDC Deck", "")
+		pause := systray.AddMenuItemCheckbox("Pause automation", "", !a.autoOn())
 		systray.AddSeparator()
 		quit := systray.AddMenuItem("Quit", "")
+		a.updateTrayPause = func(on bool) {
+			if on {
+				pause.Uncheck()
+			} else {
+				pause.Check()
+			}
+		}
 		go func() {
 			for {
 				select {
 				case <-open.ClickedCh:
 					idle(a.showWindow)
+				case <-pause.ClickedCh:
+					idle(func() { a.setAuto(!a.autoOn()) })
 				case <-quit.ClickedCh:
 					idle(a.quit)
 				}

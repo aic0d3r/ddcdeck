@@ -54,10 +54,11 @@ func init() {
 func runDaemon() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	s, err := newService()
+	s, eng, err := newService()
 	if err != nil {
 		slog.Warn("initial scan failed, waiting for hotplug", "err", err) // keep running: a monitor may appear later
 	}
+	go eng.Run(ctx) // sun/time rules; hotplug rules ride the watcher below
 	var list deck.ListResult
 	if res, err := s.Handle("list", nil); err == nil {
 		list = res.(deck.ListResult)

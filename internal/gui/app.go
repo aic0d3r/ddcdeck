@@ -3,8 +3,10 @@
 package gui
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -20,6 +22,7 @@ import (
 
 	"github.com/aic0d3r/ddcdeck/internal/ddc"
 	"github.com/aic0d3r/ddcdeck/internal/deck"
+	"github.com/aic0d3r/ddcdeck/internal/shortcuts"
 )
 
 // panelCSS rounds the quick panel: transparent surface, rounded card inside.
@@ -60,6 +63,20 @@ type App struct {
 	panel   *panel
 	hidden  bool
 	spawned time.Time
+
+	rules           *RulesInfo
+	autoSwitch      *adw.SwitchRow
+	autoToggle      *gtk.ToggleButton
+	latRow          *adw.SpinRow
+	lonRow          *adw.SpinRow
+	rulesGroup      *adw.PreferencesGroup
+	ruleRows        []*adw.ActionRow
+	shortcutsGroup  *adw.PreferencesGroup
+	shortcutRows    []*adw.ActionRow
+	shortcutsErr    string
+	shortcutsSig    string
+	scm             *shortcuts.Manager
+	updateTrayPause func(on bool)
 }
 
 // Run starts the application; hidden starts it in the tray without showing the window.
@@ -97,11 +114,15 @@ func idle(fn func()) { glib.IdleAdd(fn) }
 func (a *App) showWindow() {
 	a.win.win.Present()
 	a.refresh()
+	a.refreshAutomation()
 }
 
 func (a *App) quit() {
 	if a.panel != nil {
 		a.panel.close()
+	}
+	if a.scm != nil {
+		a.scm.Close()
 	}
 	a.app.Quit()
 }
@@ -122,7 +143,14 @@ func (a *App) connectLoop() {
 			err = cl.Call("list", nil, &list)
 		}
 		if err == nil {
-			idle(func() { a.cl = cl; a.setMonitors(list.Monitors) })
+			var rules RulesInfo
+			_ = cl.Call("rules.list", nil, &rules) // old daemons: ignore, page stays empty
+			idle(func() {
+				a.cl = cl
+				a.setMonitors(list.Monitors)
+				a.bindShortcuts(rules.Shortcuts)
+				a.refreshAutomation()
+			})
 			<-cl.Done()
 		}
 		cl.Close()
@@ -175,7 +203,8 @@ func spawnDaemon() error {
 func fileExists(p string) bool { _, err := os.Stat(p); return err == nil }
 
 // call runs an API call off the main loop and delivers the result back on it.
-func (a *App) call(method string, p deck.Params, out any, done func(error)) {
+// p may be deck.Params or any JSON-marshalable value.
+func (a *App) call(method string, p any, out any, done func(error)) {
 	cl := a.cl
 	if cl == nil {
 		if done != nil {
@@ -183,8 +212,9 @@ func (a *App) call(method string, p deck.Params, out any, done func(error)) {
 		}
 		return
 	}
-	if p.Display == "" && a.cur != nil {
-		p.Display = a.cur.ID
+	if dp, ok := p.(deck.Params); ok && dp.Display == "" && a.cur != nil {
+		dp.Display = a.cur.ID
+		p = dp
 	}
 	wait := cl.Go(method, p, out) // send now: sets must reach the daemon in UI order
 	go func() {
@@ -225,6 +255,7 @@ func (a *App) setMonitors(mons []*deck.Monitor) {
 		a.panel.close()
 	}
 	a.refresh()
+	a.refreshAutomation()
 }
 
 func (a *App) selectMonitor(i int) {
@@ -297,6 +328,26 @@ func (a *App) set(feature, value string) {
 
 func (a *App) onEvent(e deck.Event) {
 	switch e.Event {
+	case "auto":
+		if a.rules != nil {
+			a.rules.Auto = e.State == "running"
+		}
+		a.syncing = true
+		if a.autoSwitch != nil {
+			a.autoSwitch.SetActive(e.State == "running")
+		}
+		if a.autoToggle != nil {
+			a.autoToggle.SetActive(e.State == "running")
+			a.autoToggle.SetTooltipText(map[bool]string{true: "Automation running — click to pause", false: "Automation paused — click to resume"}[e.State == "running"])
+		}
+		if a.updateTrayPause != nil {
+			a.updateTrayPause(e.State == "running")
+		}
+		a.syncing = false
+	case "profile":
+		if e.State == "saved" {
+			a.win.rebuildProfiles()
+		}
 	case "hotplug":
 		var list deck.ListResult
 		a.call("list", deck.Params{}, &list, func(err error) {
@@ -321,4 +372,57 @@ func (a *App) toast(msg string) {
 	if msg != "" {
 		a.win.toasts.AddToast(adw.NewToast(msg))
 	}
+}
+
+// autoOn reports the last known automation state.
+func (a *App) autoOn() bool { return a.rules != nil && a.rules.Auto }
+
+func (a *App) addRuleRow(r *adw.ActionRow) { a.ruleRows = append(a.ruleRows, r); a.rulesGroup.Add(r) }
+func (a *App) addShortcutRow(r *adw.ActionRow) {
+	a.shortcutRows = append(a.shortcutRows, r)
+	a.shortcutsGroup.Add(r)
+}
+
+// bindShortcuts registers global shortcuts via the portal, from the GUI process: the
+// portal derives the app id from the systemd scope, which only desktop-launched apps have.
+func (a *App) bindShortcuts(scs []ShortcutInfo) {
+	sig := fmt.Sprint(scs)
+	if sig == a.shortcutsSig {
+		return
+	}
+	a.shortcutsSig = sig
+	if a.scm == nil {
+		a.scm = shortcuts.New()
+		go func() {
+			for id := range a.scm.Activations() {
+				id := id
+				idle(func() { a.runAction(id) })
+			}
+		}()
+	}
+	if len(scs) == 0 {
+		a.scm.Close()
+		a.shortcutsErr = ""
+		return
+	}
+	var list []shortcuts.Shortcut
+	for _, sc := range scs {
+		list = append(list, shortcuts.Shortcut{ID: sc.Action, Description: sc.Action + " (" + sc.Keys + ")"})
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := a.scm.Bind(ctx, list); err != nil {
+		a.shortcutsErr = err.Error()
+		slog.Warn("global shortcuts not bound", "err", err)
+	} else {
+		a.shortcutsErr = ""
+	}
+}
+
+func (a *App) runAction(action string) {
+	a.call("action.run", map[string]any{"action": action}, nil, func(err error) {
+		if err != nil {
+			a.toast(err.Error())
+		}
+	})
 }

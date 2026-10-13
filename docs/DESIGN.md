@@ -196,7 +196,13 @@ Automates the manual method used to find blue light = `0xE6`:
    migrate the `~/.local/bin/bluelight` script. *Done except the script migration (waits
    for milestone 2 rules) and `model export-mccs`. Extra API method: `monitor` (resolved
    selector + features).*
-2. **Automation:** profiles, time/sunset + hotplug rules, shortcuts portal.
+2. **Automation:** profiles, time/sunset + hotplug rules, shortcuts portal. *Done, and the
+   `bluelight` script is migrated (rules.toml + night/day profiles, bluelight.timer
+   disabled). Deviations: shortcut binding runs in the GUI process because the portal
+   derives the app id from the launching systemd app scope (a plain user service has none);
+   `keys` is therefore a suggestion shown in descriptions, real keys are assigned in the
+   desktop settings. `on_apply` hooks and profiles apply through the daemon API, so writes
+   get the same coalescing as manual changes. rules.toml rewrites (CLI/GUI) lose comments.*
 3. **GUI:** window + tray on the socket API. *Done (built before milestone 2). Deviations:
    the tray "popover" is a gtk4-layer-shell quick panel placed at the SNI click position
    (GTK4 popovers can't anchor to a tray icon on Wayland); scrolling the tray icon changes
