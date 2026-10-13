@@ -63,6 +63,7 @@ var _ busConn = connAdapter{}
 type Shortcut struct {
 	ID          string
 	Description string
+	Preferred   string // suggested trigger in shortcuts-spec form, e.g. "LOGO+SHIFT+b"
 }
 
 // Manager talks to the org.freedesktop.portal.GlobalShortcuts interface.
@@ -299,9 +300,11 @@ func (m *Manager) bindShortcuts(ctx context.Context, list []Shortcut) error {
 	// serialize wrongly and be rejected.
 	shortcuts := make([]portalShortcut, len(list))
 	for i, s := range list {
-		shortcuts[i] = portalShortcut{s.ID, map[string]dbus.Variant{
-			"description": dbus.MakeVariant(s.Description),
-		}}
+		opts := map[string]dbus.Variant{"description": dbus.MakeVariant(s.Description)}
+		if s.Preferred != "" { // desktops that support it pre-fill the key chooser
+			opts["preferred_trigger"] = dbus.MakeVariant(s.Preferred)
+		}
+		shortcuts[i] = portalShortcut{s.ID, opts}
 	}
 
 	m.mu.Lock()

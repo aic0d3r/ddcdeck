@@ -42,9 +42,14 @@ func init() {
 		},
 	})
 	d.AddCommand(&cobra.Command{
-		Use: "logs", Short: "Follow the daemon journal", Args: cobra.NoArgs,
+		Use: "logs", Short: "Follow the daemon log", Args: cobra.NoArgs,
 		RunE: func(*cobra.Command, []string) error {
-			j := exec.Command("journalctl", "--user", "-u", "ddcdeckd", "-n", "100", "-f")
+			var j *exec.Cmd
+			if _, err := os.Stat(deck.LogPath()); err == nil { // started by the GUI, outside systemd
+				j = exec.Command("tail", "-n", "100", "-f", deck.LogPath())
+			} else {
+				j = exec.Command("journalctl", "--user", "-u", "ddcdeckd", "-n", "100", "-f")
+			}
 			j.Stdout, j.Stderr = os.Stdout, os.Stderr
 			return j.Run()
 		},
@@ -55,6 +60,11 @@ func init() {
 func runDaemon() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	if path := os.Getenv("DDCDECK_LOG"); path != "" { // no journald: the GUI asks for a file
+		if f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600); err == nil {
+			slog.SetDefault(slog.New(slog.NewTextHandler(f, nil)))
+		}
+	}
 	s, eng, err := newService()
 	if err != nil {
 		slog.Warn("initial scan failed, waiting for hotplug", "err", err) // keep running: a monitor may appear later

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -24,10 +25,21 @@ type Rule struct {
 }
 
 // Shortcut pairs an action with keys. The portal lets the user assign the actual keys in
-// the desktop settings; Keys is the documented suggestion, not enforced.
+// the desktop settings; Keys is the suggestion shown there, not enforced.
 type Shortcut struct {
-	Keys   string `toml:"keys" json:"keys"`
-	Action string `toml:"action" json:"action"`
+	Keys    string `toml:"keys" json:"keys"`
+	Action  string `toml:"action" json:"action"`
+	Default bool   `toml:"-" json:"default,omitempty"` // a built-in suggestion, not written to rules.toml
+}
+
+// DefaultShortcuts are used when rules.toml declares no [[shortcut]] at all, so the keys
+// are there to assign out of the box. Adding any shortcut of your own takes over.
+func DefaultShortcuts() []Shortcut {
+	return []Shortcut{
+		{Keys: "Meta+Shift+Up", Action: "brightness set +10", Default: true},
+		{Keys: "Meta+Shift+Down", Action: "brightness set -10", Default: true},
+		{Keys: "Meta+Shift+B", Action: "bluelight toggle", Default: true},
+	}
 }
 
 // Config is rules.toml.
@@ -58,15 +70,14 @@ var hhmm = regexp.MustCompile(`^([01]?\d|2[0-3]):[0-5]\d$`)
 func LoadConfig() (Config, error) {
 	var c Config
 	b, err := os.ReadFile(ConfigPath())
-	if errors.Is(err, os.ErrNotExist) {
-		c.Location.Lat, c.Location.Lon = 52.37, 4.90
-		return c, nil
-	}
-	if err != nil {
+	switch {
+	case errors.Is(err, os.ErrNotExist): // no file yet: defaults only
+	case err != nil:
 		return c, err
-	}
-	if err := toml.Unmarshal(b, &c); err != nil {
-		return c, fmt.Errorf("%s: %w", ConfigPath(), err)
+	default:
+		if err := toml.Unmarshal(b, &c); err != nil {
+			return c, fmt.Errorf("%s: %w", ConfigPath(), err)
+		}
 	}
 	if c.Location.Lat == 0 && c.Location.Lon == 0 {
 		c.Location.Lat, c.Location.Lon = 52.37, 4.90
@@ -83,6 +94,9 @@ func LoadConfig() (Config, error) {
 		if c.Shortcut[i].Action == "" || c.Shortcut[i].Keys == "" {
 			return c, fmt.Errorf("shortcut %d: keys and action are both required", i+1)
 		}
+	}
+	if len(c.Shortcut) == 0 { // nothing configured: the built-in suggestions are shown instead
+		c.Shortcut = DefaultShortcuts()
 	}
 	return c, nil
 }
@@ -105,6 +119,9 @@ func SaveConfig(c Config) error {
 	if err := os.MkdirAll(ConfigDir(), 0o700); err != nil {
 		return err
 	}
+	// the built-in shortcut suggestions are display-only: writing them would make them
+	// real entries the user did not ask for
+	c.Shortcut = slices.DeleteFunc(slices.Clone(c.Shortcut), func(s Shortcut) bool { return s.Default })
 	b, err := toml.Marshal(c)
 	if err != nil {
 		return err

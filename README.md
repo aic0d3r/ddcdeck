@@ -1,12 +1,14 @@
 # DDC Deck
 
+![CI](https://github.com/aic0d3r/ddcdeck/actions/workflows/ci.yml/badge.svg)
+
 Monitor control for Linux in the style of ASUS DisplayWidget Center: brightness, blue light
 filter, color presets, input switching, profiles and automation (sunset, dock/undock, active
 app, hotkeys). Works with any DDC/CI monitor; vendor-specific features come from community
 model files.
 
-Status: daemon, CLI, GUI and tray work. Profiles, rules and the discovery wizard come next;
-see [docs/DESIGN.md](docs/DESIGN.md).
+Status: daemon, CLI, GUI, tray, profiles, rules, shortcuts and the discovery wizard all work.
+Remaining: AUR packaging and more community model files. See [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Install
 
@@ -18,6 +20,9 @@ make install-service   # optional: systemd --user daemon (fast cached reads, eve
 ```
 
 Without the daemon the CLI talks to the monitor directly (slower, ~1-3 s per command).
+
+On Arch, `packaging/PKGBUILD` builds both packages (`ddcdeck` and `ddcdeck-gui`):
+`makepkg -si` in a copy of that directory.
 
 ### GUI and tray
 
@@ -31,7 +36,10 @@ make install-gui       # ddcdeck-gui, app menu entry, starts hidden in the tray 
 - Scroll on the tray icon: brightness ±5. Right-click: Open / Quit.
 - Closing the window keeps DDC Deck in the tray.
 - The GUI starts the daemon if needed (`systemctl --user start ddcdeckd`, else it runs
-  `ddcdeckd` directly). Set `DDCDECK_DEBUG=1` for logs.
+  `ddcdeckd` directly and logs to `~/.cache/ddcdeck/daemon.log`; `ddcdeck daemon logs` follows
+  whichever is in use). Set `DDCDECK_DEBUG=1` for logs.
+- Numbers you did not change in the app (a brightness change made with the monitor's own
+  buttons) are re-read from the monitor while the window is on screen.
 
 ## Profiles and automation
 
@@ -41,10 +49,14 @@ ddcdeck profile save day --fields brightness,bluelight
 ddcdeck profile apply night          # several: applied in order, only stored fields change
 ddcdeck profile list | show night | edit night | rm night
 
-ddcdeck rules                        # triggers, next fire time, shortcuts, auto state
+ddcdeck rules                        # triggers, next and last fire time, shortcuts, auto state
 ddcdeck auto disable | enable        # pause/resume all triggers
 ddcdeck bluelight schedule sunset    # or "21:00-07:00", or off; --level N
 ```
+
+A fired rule sends a desktop notification ("Sunset → night") and `ddcdeck rules` shows when
+each rule last ran, so a quiet screen is never mistaken for a broken rule. App rules stay
+silent — they would fire on every window switch.
 
 App rules (KDE only) apply a profile while any of the listed window classes is focused
 and restore the previous values when focus leaves, e.g. `when = "app"`,
@@ -58,9 +70,27 @@ daemon was down. `connected`/`disconnected` rules fire on hotplug. Tool-written 
 rewrites lose comments.
 
 **Global shortcuts** are registered through the XDG GlobalShortcuts portal from the GUI:
-assign keys in *System Settings → Shortcuts → DDC Deck* (the `keys` value in rules.toml is
-a documented suggestion). The portal only accepts apps launched from the desktop entry or
-autostart, not from a terminal.
+assign keys in *System Settings → Shortcuts → DDC Deck* (the `keys` value in rules.toml is a
+suggestion, and desktops that support it get it pre-filled). The portal only accepts apps
+launched from the desktop entry or autostart, not from a terminal. With no `[[shortcut]]` in
+rules.toml, DDC Deck offers three suggestions (brightness ±10, blue light toggle); add your
+own to replace them.
+
+If your desktop has no GlobalShortcuts portal, use its own custom-shortcut feature and call
+the CLI — each action is one command:
+
+| Suggested keys | Command |
+|---|---|
+| <kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>↑</kbd> | `ddcdeck brightness set +10` |
+| <kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>↓</kbd> | `ddcdeck brightness set -10` |
+| <kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> | `ddcdeck bluelight toggle` |
+| any | `ddcdeck profile apply night`, `ddcdeck input set hdmi2`, … |
+
+**Blue light**: DDC Deck drives the monitor's own filter (VCP code found by the wizard). Many
+monitors have no such code — the desktop already fixes that in software, and does it better
+(per-screen, no banding): KDE Night Color, GNOME Night Light, `wlsunset`/`wl-gammactl` on
+wlroots compositors (Sway, Hyprland), `redshift` or `xrandr --gamma` on X11. Use those; DDC
+Deck stays out of the colour pipeline.
 
 ### Discovering vendor features
 
@@ -88,9 +118,15 @@ ddcdeck brightness set +10        # also: contrast, sharpness
 ddcdeck bluelight toggle          # on | off | set 0-20 (model-file feature)
 ddcdeck input list && ddcdeck input set hdmi1
 ddcdeck colortemp set 6500k
+ddcdeck volume set 40             # also: mute set mute|unmute, power set standby|off
 ddcdeck vcp get E6                # raw escape hatch
 ddcdeck -d DP-8 --json status     # pick a monitor by index, model, serial, connector or ID
+ddcdeck default PA279CRV          # pin the monitor used when -d is omitted
 ```
+
+`ddcdeck default` (no arguments) shows what is pinned; `--clear` goes back to the first
+monitor detected. Docking renumbers buses, so pinning is what keeps commands and rules on the
+screen you mean. The same setting has a button in the GUI's Settings page.
 
 Exit codes: 0 ok, 1 usage, 2 no monitor, 3 feature unsupported, 4 DDC error.
 

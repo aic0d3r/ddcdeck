@@ -204,22 +204,23 @@ func (s *Service) identify(d ddc.Display) *Monitor {
 	return m
 }
 
-// find resolves a display selector: "" (only/first), 1-based index, ID, model, serial or connector.
+// find resolves a display selector: "" (the pinned default, else the first), 1-based
+// index, ID, model, serial or connector.
 func (s *Service) find(sel string) (*Monitor, error) {
+	pinned := sel == ""
+	if pinned {
+		sel = DefaultDisplay() // read outside the lock: it touches the disk
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if len(s.mons) == 0 {
 		return nil, errf(ErrNoMonitor, "no DDC monitor found")
 	}
-	if sel == "" {
-		return s.mons[0], nil
+	if m := Match(s.mons, sel); m != nil {
+		return m, nil
 	}
-	for _, m := range s.mons {
-		if strconv.Itoa(m.Index) == sel || slices.ContainsFunc([]string{m.ID, m.Model, m.Serial, m.Connector}, func(v string) bool {
-			return v != "" && strings.EqualFold(v, sel)
-		}) {
-			return m, nil
-		}
+	if pinned { // the pinned monitor is gone (undocked): fall back instead of failing
+		return s.mons[0], nil
 	}
 	return nil, errf(ErrNoMonitor, "no monitor matches %q", sel)
 }
@@ -432,6 +433,7 @@ type Params struct {
 	Feature string          `json:"feature,omitempty"`
 	Code    string          `json:"code,omitempty"` // vcp.*: hex, e.g. "E6"
 	Value   json.RawMessage `json:"value,omitempty"`
+	Fresh   bool            `json:"fresh,omitempty"` // status: bypass the cache (a change made in the monitor's OSD)
 }
 
 // ListResult is the result of "list".
@@ -504,7 +506,7 @@ func (s *Service) handle(method string, raw json.RawMessage, wait *func() error)
 		for _, f := range m.Features {
 			codes = append(codes, byte(f.VCP))
 		}
-		vals, err := s.read(m, false, codes...)
+		vals, err := s.read(m, p.Fresh, codes...)
 		if err != nil {
 			return nil, err
 		}

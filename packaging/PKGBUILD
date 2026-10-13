@@ -1,0 +1,57 @@
+# Maintainer: aic0d3r <https://github.com/aic0d3r>
+#
+# This is the AUR template: copy it to its own directory, cut the v$pkgver tag in the repo,
+# run `makepkg --printsrcinfo > .SRCINFO`, then `makepkg -si`.
+pkgbase=ddcdeck
+pkgname=(ddcdeck ddcdeck-gui)
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Monitor control over DDC/CI in the style of ASUS DisplayWidget Center"
+arch=('x86_64' 'aarch64')
+url="https://github.com/aic0d3r/ddcdeck"
+license=('Apache')
+makedepends=('go')
+source=("git+${url}.git#tag=v${pkgver}")
+sha256sums=('SKIP')
+
+build() {
+  cd "$srcdir/ddcdeck"
+  make build build-gui
+}
+
+check() {
+  cd "$srcdir/ddcdeck"
+  # no DDC hardware and no display in the build chroot: unit tests only
+  go test ./internal/... ./data/...
+}
+
+package_ddcdeck() {
+  pkgdesc="Monitor control over DDC/CI: daemon and CLI"
+  depends=('ddcutil')
+  optdepends=('ddcdeck-gui: window, tray and quick panel')
+
+  cd "$srcdir/ddcdeck"
+  install -Dm755 ddcdeck "$pkgdir/usr/bin/ddcdeck"
+  ln -s ddcdeck "$pkgdir/usr/bin/ddcdeckd"
+  install -Dm644 dist/ddcdeckd.service "$pkgdir/usr/lib/systemd/user/ddcdeckd.service"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_ddcdeck-gui() {
+  pkgdesc="Monitor control over DDC/CI: GUI and tray"
+  depends=("ddcdeck=$pkgver-$pkgrel" 'gtk4' 'libadwaita' 'gtk4-layer-shell')
+  optdepends=('kwin: rules that follow the focused window')
+
+  cd "$srcdir/ddcdeck"
+  install -Dm755 ddcdeck-gui "$pkgdir/usr/bin/ddcdeck-gui"
+  install -Dm644 "dist/io.github.aic0d3r.DDCDeck.desktop" \
+    "$pkgdir/usr/share/applications/io.github.aic0d3r.DDCDeck.desktop"
+  install -Dm644 assets/io.github.aic0d3r.DDCDeck.svg \
+    "$pkgdir/usr/share/icons/hicolor/scalable/apps/io.github.aic0d3r.DDCDeck.svg"
+  # start hidden in the tray at login (the desktop entry stays a normal launcher)
+  install -dm755 "$pkgdir/etc/xdg/autostart"
+  sed 's|^Exec=ddcdeck-gui|Exec=ddcdeck-gui --hidden|' \
+    "dist/io.github.aic0d3r.DDCDeck.desktop" \
+    > "$pkgdir/etc/xdg/autostart/io.github.aic0d3r.DDCDeck.desktop"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

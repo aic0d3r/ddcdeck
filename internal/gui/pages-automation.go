@@ -32,11 +32,13 @@ type RuleInfo struct {
 	Apply    []string `json:"apply"`
 	Display  string   `json:"display"`
 	NextFire string   `json:"next_fire"`
+	LastFire string   `json:"last_fire"`
 }
 
 type ShortcutInfo struct {
-	Keys   string `json:"keys"`
-	Action string `json:"action"`
+	Keys    string `json:"keys"`
+	Action  string `json:"action"`
+	Default bool   `json:"default"` // built-in suggestion, not from rules.toml
 }
 
 // buildProfiles: apply/list profiles, save the current state as a new one.
@@ -244,6 +246,9 @@ func (a *App) refreshAutomation() {
 				if rule.NextFire != "" {
 					sub = "next: " + rule.NextFire
 				}
+				if rule.LastFire != "" {
+					sub += " · last fired: " + rule.LastFire // answers "did it run or is it broken?"
+				}
 				if rule.Display != "" {
 					sub += " · " + rule.Display
 				}
@@ -259,7 +264,11 @@ func (a *App) refreshAutomation() {
 			for _, s := range res.Shortcuts {
 				r := adw.NewActionRow()
 				r.SetTitle(fmt.Sprintf("%s → %s", s.Keys, s.Action))
-				r.SetSubtitle("assign the keys in the system settings")
+				if s.Default {
+					r.SetSubtitle("suggested — assign the keys in the system settings, or add your own [[shortcut]]")
+				} else {
+					r.SetSubtitle("assign the keys in the system settings")
+				}
 				a.addShortcutRow(r)
 			}
 		}

@@ -193,11 +193,13 @@ type Rule struct {
 	Apply    []string `json:"apply"`
 	Display  string   `json:"display"`
 	NextFire string   `json:"next_fire"`
+	LastFire string   `json:"last_fire"`
 }
 
 type Shortcut struct {
-	Keys   string `json:"keys"`
-	Action string `json:"action"`
+	Keys    string `json:"keys"`
+	Action  string `json:"action"`
+	Default bool   `json:"default"`
 }
 
 func (r rulesResult) render() {
@@ -208,10 +210,18 @@ func (r rulesResult) render() {
 		if next == "" {
 			next = "on " + rule.When
 		}
-		fmt.Printf("  %-11s → %-20s next: %s\n", rule.Label, strings.Join(rule.Apply, ","), next)
+		line := fmt.Sprintf("  %-11s → %-20s next: %s", rule.Label, strings.Join(rule.Apply, ","), next)
+		if rule.LastFire != "" {
+			line += ", last: " + rule.LastFire // "did it fire, or is it broken?"
+		}
+		fmt.Println(line)
 	}
 	for _, sc := range r.Shortcuts {
-		fmt.Printf("  %-11s → %s (assign keys in system settings)\n", sc.Keys, sc.Action)
+		suggested := ""
+		if sc.Default {
+			suggested = " [suggested]"
+		}
+		fmt.Printf("  %-11s → %s (assign keys in system settings)%s\n", sc.Keys, sc.Action, suggested)
 	}
 	for _, u := range r.Unsupported {
 		fmt.Println("  note:", u)

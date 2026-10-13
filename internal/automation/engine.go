@@ -9,12 +9,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/aic0d3r/ddcdeck/internal/deck"
+	"github.com/aic0d3r/ddcdeck/internal/notify"
 )
 
 // Engine schedules and fires rules. It owns no DDC state: everything goes through the
@@ -38,9 +40,10 @@ type Engine struct {
 // engineState survives restarts so transitions that happen while the daemon is down
 // still fire on the next start (same behaviour as the bluelight script's state file).
 type engineState struct {
-	Auto  bool            `json:"auto"`
-	Sun   string          `json:"sun"`             // "day" | "night" | "" unknown
-	Fired map[string]bool `json:"fired,omitempty"` // per-rule: fired for today's date
+	Auto  bool              `json:"auto"`
+	Sun   string            `json:"sun"`             // "day" | "night" | "" unknown
+	Fired map[string]bool   `json:"fired,omitempty"` // per-rule: fired for today's date
+	Last  map[string]string `json:"last,omitempty"`  // per-rule: last fire, RFC3339 (shown in rules list)
 }
 
 func statePath() string {
@@ -55,11 +58,16 @@ func statePath() string {
 func NewEngine(svc *deck.Service) *Engine {
 	e := &Engine{svc: svc, HotplugDelay: 3 * time.Second, stateFile: statePath()}
 	e.state.Auto = true
+	e.loadState()
+	e.cfg, _ = LoadConfig()
+	return e
+}
+
+// loadState reads the persisted state from e.stateFile (missing or broken: defaults).
+func (e *Engine) loadState() {
 	if b, err := os.ReadFile(e.stateFile); err == nil {
 		_ = json.Unmarshal(b, &e.state)
 	}
-	e.cfg, _ = LoadConfig()
-	return e
 }
 
 // saveState persists the engine state. It takes e.mu so a save never races a tick
@@ -162,10 +170,17 @@ func (e *Engine) tick(now time.Time) {
 			fire = append(fire, r)
 		}
 	}
-	// prune fired entries older than yesterday (bounded map)
+	// prune fired entries older than yesterday (bounded map), and last-fire stamps of
+	// rules that no longer exist
 	for k := range e.state.Fired {
 		if d := strings.Split(k, "@"); len(d) == 2 && d[1] != now.Format("2006-01-02") {
 			delete(e.state.Fired, k)
+			dirty = true
+		}
+	}
+	for id := range e.state.Last {
+		if !slices.ContainsFunc(cfg.Rule, func(r Rule) bool { return r.ID == id }) {
+			delete(e.state.Last, id)
 			dirty = true
 		}
 	}
@@ -191,13 +206,54 @@ func rulesWhen(cfg Config, when string) []Rule {
 
 func (e *Engine) fire(r Rule) {
 	slog.Info("rule fired", "when", r.When, "apply", r.Apply, "display", r.Display)
+	e.markFired(r.ID)
 	e.svc.Emit(deck.Event{Event: "rule", State: r.When, Display: r.Display})
 	res := ApplyProfile(e.svcAutomation(), r.Apply)
+	var failed []string
 	for _, a := range res {
 		if a.Error != "" {
 			slog.Warn("profile apply failed", "display", a.Display, "profile", a.Profile, "err", a.Error)
+			failed = append(failed, a.Display+": "+a.Error)
 		}
 	}
+	// app rules fire on every window switch and revert on blur: a notification each time
+	// would be noise, so only scheduled and hotplug rules announce themselves
+	if r.When == "app" {
+		return
+	}
+	summary := WhenLabel(r.When) + " → " + strings.Join(r.Apply, ", ")
+	if len(failed) > 0 {
+		notifyFn(summary+" failed", strings.Join(failed, "\n"))
+		return
+	}
+	where := r.Display
+	if where == "" {
+		where = "all matching monitors"
+	}
+	notifyFn(summary, where)
+}
+
+// notifyFn is how a fired rule announces itself; tests swap it out so they can assert on
+// what the user would have seen (and stay quiet on a developer's desktop).
+var notifyFn = notify.Send
+
+// markFired records when a rule last ran, so `ddcdeck rules` and the GUI can answer
+// "did it fire, or is it broken?".
+func (e *Engine) markFired(id string) {
+	e.mu.Lock()
+	if e.state.Last == nil {
+		e.state.Last = map[string]string{}
+	}
+	e.state.Last[id] = time.Now().Format(time.RFC3339)
+	e.mu.Unlock()
+	e.saveState()
+}
+
+// LastFired returns the RFC3339 stamp of the rule's last run ("" if it never ran).
+func (e *Engine) LastFired(id string) string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.state.Last[id]
 }
 
 // OnApp applies the first app rule matching the focused window class and remembers the

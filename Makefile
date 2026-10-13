@@ -9,10 +9,10 @@ DATADIR := $(HOME)/.local/share
 .PHONY: build build-gui test install install-service install-gui uninstall
 
 build:
-	go build -ldflags "$(LDFLAGS)" -o ddcdeck .
+	go build -trimpath -ldflags "$(LDFLAGS)" -o ddcdeck .
 
 build-gui:
-	go build -ldflags "$(LDFLAGS)" -o ddcdeck-gui ./cmd/ddcdeck-gui
+	go build -trimpath -ldflags "$(LDFLAGS)" -o ddcdeck-gui ./cmd/ddcdeck-gui
 
 test:
 	go vet ./... && go test -race ./...

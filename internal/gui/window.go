@@ -306,6 +306,34 @@ func buildSettings(w *window) *adw.PreferencesPage {
 	})
 	info.Add(conn)
 
+	// which monitor the CLI and the rules address when -d is left out (shared config.toml)
+	defRow := adw.NewActionRow()
+	defRow.SetTitle("Default monitor for CLI and rules")
+	showDefault := func() {
+		if d := deck.DefaultDisplay(); d != "" {
+			defRow.SetSubtitle("Pinned to “" + d + "”")
+		} else {
+			defRow.SetSubtitle("Not set — the first monitor detected is used")
+		}
+	}
+	showDefault()
+	useBtn := gtk.NewButtonWithLabel("Use this monitor")
+	useBtn.SetVAlign(gtk.AlignCenter)
+	useBtn.ConnectClicked(func() {
+		sel := m.Serial
+		if sel == "" {
+			sel = m.ID
+		}
+		if err := deck.SetDefaultDisplay(sel); err != nil {
+			a.toast(err.Error())
+			return
+		}
+		showDefault()
+		a.toast(m.Model + " is now the default monitor")
+	})
+	defRow.AddSuffix(useBtn)
+	info.Add(defRow)
+
 	// tier 2: vendor support in one place, with the guided way out
 	vendor := adw.NewPreferencesGroup()
 	vendor.SetTitle("Vendor features")

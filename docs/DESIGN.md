@@ -65,7 +65,11 @@ ddcdeck colortemp  get | set <name>           # names from model file, e.g. 5000
 ddcdeck preset     list | get | set <name>    # srgb, adobergb, dci-p3, rec709, user1 ...
 ddcdeck input      list | get | set <name>    # dp, hdmi1, hdmi2, usbc
 ddcdeck kvm        get | set <upstream>       # if the model supports it
+ddcdeck volume     get | set <0-max|+N|-N>    # built-in speakers (VCP 62)
+ddcdeck mute       set <mute|unmute>          # VCP 8D
+ddcdeck power      set <on|standby|suspend|off>  # VCP D6
 
+ddcdeck default [selector] [--clear]          # pin the monitor used when -d is omitted
 ddcdeck profile    list | show <name> | apply <name>... | save <name> [--fields a,b]
 ddcdeck profile    edit <name> | rm <name>
 ddcdeck auto       status | enable | disable  # pause all triggers
@@ -97,7 +101,6 @@ Methods: `list`, `status`, `get`, `set`, `profile.apply|list|save`, `rules.list`
 ## 4. Config formats
 
 ### Model file (source of truth, contributable) — `data/models/<MFG>-<MODEL>-<PRODUCT>.toml`
-
 Maps friendly feature names to VCP codes. `ddcdeck model export-mccs` generates the ddcutil
 `.mccs` from it, so ddcutil and ddcui users benefit too.
 
@@ -144,6 +147,17 @@ action = "bluelight toggle"
 
 Rules fire on **transitions** only. A manual change sticks until the next transition, the
 same behaviour as the current `bluelight auto` script.
+
+### Global settings — `~/.config/ddcdeck/config.toml`
+
+```toml
+default_display = "PA279CRV"   # index, model, serial, connector or ID; "" = first detected
+```
+
+Written by `ddcdeck default` and by the GUI's Settings page, read on every command (and by
+the daemon when no `-d` is given). Bus numbers change when you re-dock, so this is what keeps
+commands and rules on the intended screen; if the pinned monitor is unplugged, the first
+monitor is used instead of failing.
 
 ## 5. GUI
 
@@ -221,7 +235,29 @@ Automates the manual method used to find blue light = `0xE6`:
    brightness; Profiles/Automation pages and "Pause automation" arrive with milestone 2.
    Writes coalesce per VCP code in the daemon (latest wins, in arrival order), so slider
    drags cost a few I2C writes.*
-4. **Community:** discovery wizard (CLI done), KWin app watcher (done), AUR package, docs site.
+4. **Community:** discovery wizard (CLI done), KWin app watcher (done), AUR package
+   (`packaging/PKGBUILD`, split into `ddcdeck` + `ddcdeck-gui`; cut the `v$pkgver` tag before
+   publishing it), CI (`.github/workflows/ci.yml`), docs site.
+
+**Basics pass (2026-10).** The gaps a first-time user hits immediately:
+
+- **CLI parity** — `volume`, `mute` and `power` were in the GUI and in `model.Defaults()` but
+  had no CLI commands. §2's promise holds again.
+- **`ddcdeck default`** — `-d` used to mean "whatever ddcutil lists first", which changes when
+  you dock. `config.toml` now pins a monitor; unplugged again falls back instead of failing.
+- **Visible automation** — a fired rule sends a desktop notification (`org.freedesktop.Notifications`,
+  no portal needed) and the engine persists `last_fire` per rule, shown by `ddcdeck rules` and
+  on the Automation page. App rules are excluded: they fire on every window switch.
+- **Stale values** — `status` takes `fresh`, and the GUI re-reads the monitor every 15 s while
+  the window is visible but not focused, so changes made with the monitor's own buttons appear.
+- **Shortcut suggestions** — rules.toml `keys` is sent to the portal as `preferred_trigger`
+  (freedesktop shortcuts-spec: `Meta+Shift+B` → `LOGO+SHIFT+b`), and three suggested shortcuts
+  appear when rules.toml declares none. They are display-only: `SaveConfig` never writes them.
+- **Logs without systemd** — the GUI-spawned daemon writes `~/.cache/ddcdeck/daemon.log`
+  (`DDCDECK_LOG`), which `ddcdeck daemon logs` prefers over the journal.
+
+Deliberately not built: a software blue-light/brightness fallback (KDE Night Color and GNOME
+Night Light already do this in the compositor; hardware codes stay DDC Deck's job) and i18n.
 
 **App watcher (2026-10, implemented):** a KWin script (embedded, installed to
 `~/.local/share/ddcdeck/kwin/`) reports `windowActivated` + the active window's

@@ -42,6 +42,11 @@ const AppID = "io.github.aic0d3r.DDCDeck"
 // optimistic echoes (which lag a dragged slider) don't make it jump back.
 const echoWindow = 800 * time.Millisecond
 
+// pollInterval: how often an on-screen window re-reads the monitor. The daemon's cache
+// cannot notice changes made with the monitor's own OSD buttons, so this read is uncached;
+// one batched ddcutil call per monitor is cheap at this rate.
+const pollInterval = 15 * time.Second
+
 // binder holds one view's widget updaters, keyed by feature.
 type binder map[string][]func(deck.FeatureValue)
 
@@ -98,6 +103,15 @@ func Run(hidden bool) int {
 		a.win = newWindow(a)
 		startTray(a)
 		go a.connectLoop()
+		src := glib.NewTimeoutSource(uint(pollInterval / time.Millisecond))
+		src.Attach(nil)
+		src.SetCallback(func() bool {
+			if a.cl != nil && a.cur != nil && a.win.win.IsVisible() && !a.win.win.IsActive() {
+				a.refreshFresh() // values changed on the monitor itself show up by themselves;
+				// skipped while focused, where an uncached read would fight slider drags
+			}
+			return true
+		})
 	})
 	a.app.ConnectActivate(func() {
 		if a.hidden { // only the autostart launch is hidden; later activations show the window
@@ -191,7 +205,8 @@ func spawnDaemon() error {
 		return errors.New("ddcdeckd not found; run `make install`")
 	}
 	cmd := exec.Command(bin)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true} // outlives the GUI
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}          // outlives the GUI
+	cmd.Env = append(os.Environ(), "DDCDECK_LOG="+deck.LogPath()) // our stderr goes nowhere; `ddcdeck daemon logs` reads the file
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -243,7 +258,10 @@ func (a *App) setMonitors(mons []*deck.Monitor) {
 		}
 	}
 	if a.cur == nil && len(mons) > 0 {
-		a.cur = mons[0]
+		a.cur = deck.Match(mons, deck.DefaultDisplay()) // the pinned monitor wins over the first one
+		if a.cur == nil {
+			a.cur = mons[0]
+		}
 	}
 	a.vals = map[string]deck.FeatureValue{}
 	if a.cur == nil {
@@ -269,13 +287,18 @@ func (a *App) selectMonitor(i int) {
 }
 
 // refresh reads all values of the current monitor (served from the daemon cache when fresh).
-func (a *App) refresh() {
+func (a *App) refresh() { a.status(false) }
+
+// refreshFresh re-reads the monitor itself, so changes made in its OSD show up.
+func (a *App) refreshFresh() { a.status(true) }
+
+func (a *App) status(fresh bool) {
 	if a.cur == nil {
 		return
 	}
 	id := a.cur.ID
 	var res deck.StatusResult
-	a.call("status", deck.Params{}, &res, func(err error) {
+	a.call("status", deck.Params{Fresh: fresh}, &res, func(err error) {
 		if err != nil {
 			a.toast("Couldn't read the monitor: " + err.Error())
 			return
@@ -412,7 +435,8 @@ func (a *App) bindShortcuts(scs []ShortcutInfo) {
 	}
 	var list []shortcuts.Shortcut
 	for _, sc := range scs {
-		list = append(list, shortcuts.Shortcut{ID: sc.Action, Description: sc.Action + " (" + sc.Keys + ")"})
+		list = append(list, shortcuts.Shortcut{ID: sc.Action, Description: sc.Action + " (" + sc.Keys + ")",
+			Preferred: shortcuts.Trigger(sc.Keys)})
 	}
 	go func() { // the portal can take seconds to answer: keep it off the GTK main loop
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)

@@ -23,6 +23,9 @@ var featureCmds = []struct {
 	{"preset", "enum", "Picture preset (ProArt/Splendid)", false},
 	{"input", "enum", "Input source", false},
 	{"kvm", "enum", "KVM / USB upstream", false},
+	{"volume", "range", "Built-in speaker volume", false},
+	{"mute", "enum", "Built-in speaker mute (set mute|unmute)", false},
+	{"power", "enum", "Power mode (set on|standby|suspend|off)", false},
 }
 
 func init() {

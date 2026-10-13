@@ -36,7 +36,7 @@ func (a *App) togglePanelAt(x, y int) {
 		return
 	}
 	a.panel = newPanel(a, x, y)
-	a.refresh()
+	a.refreshFresh() // the panel is a one-shot surface: it should show the monitor's real state
 }
 
 func newPanel(a *App, x, y int) *panel {
