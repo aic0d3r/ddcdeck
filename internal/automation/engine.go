@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +28,9 @@ type Engine struct {
 	cfg    Config
 	cfgMod time.Time
 	state  engineState
+
+	appRule *Rule                     // app rule currently applied, nil when idle
+	appSnap map[string]map[string]int // values before it was applied, by display → feature
 
 	HotplugDelay time.Duration // settle time before connected rules fire (tests shrink it)
 }
@@ -132,9 +136,9 @@ func (e *Engine) tick(now time.Time) {
 			e.state.Sun = want
 			fire = append(fire, rulesWhen(cfg, map[bool]string{true: "sunset", false: "sunrise"}[night])...)
 		}
-	} else {
-		e.state.Sun = "" // paused: forget the baseline so resume doesn't fire a stale transition
 	}
+	// paused: keep the last known sun state, so a transition that happened while
+	// paused still fires on resume (same catch-up as a daemon restart)
 	for _, r := range cfg.Rule {
 		h, m, ok := timeRule(r.When)
 		if !ok {
@@ -183,6 +187,101 @@ func (e *Engine) fire(r Rule) {
 			slog.Warn("profile apply failed", "display", a.Display, "profile", a.Profile, "err", a.Error)
 		}
 	}
+}
+
+// OnApp applies the first app rule matching the focused window class and remembers the
+// touched values; when focus moves to a non-matching window they are restored.
+func (e *Engine) OnApp(class string) {
+	e.reload()
+	e.mu.Lock()
+	auto, cfg := e.state.Auto, e.cfg
+	same := e.appRule
+	e.mu.Unlock()
+	if !auto {
+		return
+	}
+	match := matchAppRule(cfg, class)
+	if match != nil && same != nil && match.ID == same.ID {
+		return // same rule, focus moved between its windows
+	}
+	if same != nil {
+		e.revertApp()
+	}
+	if match == nil {
+		return
+	}
+	e.mu.Lock()
+	e.appRule = match
+	e.appSnap = e.snapshotFor(match.Apply)
+	e.mu.Unlock()
+	e.fire(*match)
+}
+
+// revertApp restores the values the active app rule overrode.
+func (e *Engine) revertApp() {
+	e.mu.Lock()
+	snap := e.appSnap
+	e.appRule, e.appSnap = nil, nil
+	e.mu.Unlock()
+	for display, fields := range snap {
+		names := make([]string, 0, len(fields))
+		for f := range fields {
+			names = append(names, f)
+		}
+		sort.Strings(names)
+		for _, f := range names {
+			if _, err := e.svc.Handle("set", mustJSON(deck.Params{Display: display, Feature: f, Value: mustJSON(fields[f])})); err != nil {
+				slog.Warn("app rule revert failed", "display", display, "feature", f, "err", err)
+			}
+		}
+	}
+}
+
+// snapshotFor reads the current values of every field the profiles will touch.
+func (e *Engine) snapshotFor(profiles []string) map[string]map[string]int {
+	out := map[string]map[string]int{}
+	for _, name := range profiles {
+		p, err := LoadProfile(name)
+		if err != nil {
+			continue
+		}
+		for _, m := range e.svcAutomation().ListMonitors() {
+			for _, sec := range p.Monitors {
+				if !matches(sec.Match, m.Model, m.Serial, m.ID) {
+					continue
+				}
+				if out[m.ID] == nil {
+					out[m.ID] = map[string]int{}
+				}
+				for f := range sec.Fields {
+					if _, taken := out[m.ID][f]; taken {
+						continue
+					}
+					raw, _ := json.Marshal(deck.Params{Display: m.ID, Feature: f})
+					if r, err := e.svc.Handle("get", raw); err == nil {
+						if fv, ok := r.(deck.FeatureValue); ok {
+							out[m.ID][f] = fv.Value
+						}
+					}
+				}
+			}
+		}
+	}
+	return out
+}
+
+func matchAppRule(cfg Config, class string) *Rule {
+	for i, r := range cfg.Rule {
+		if r.When != "app" {
+			continue
+		}
+		for _, c := range r.Class {
+			if strings.EqualFold(c, class) {
+				return &cfg.Rule[i]
+			}
+		}
+	}
+	return nil
 }
 
 // Hotplug applies connected/disconnected rules after the settle delay.

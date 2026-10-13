@@ -21,7 +21,7 @@ func Elevation(lat, lon float64, t time.Time) float64 {
 		0.014615*math.Cos(2*g) - 0.040849*math.Sin(2*g))
 	decl := 0.006918 - 0.399912*math.Cos(g) + 0.070257*math.Sin(g) - 0.006758*math.Cos(2*g) +
 		0.000907*math.Sin(2*g) - 0.002697*math.Cos(3*g) + 0.00148*math.Sin(3*g)
-	ha := math.Pi / 180 * ((float64(t.Hour()*60+t.Minute()) + eqt + 4*lon)/4 - 180)
+	ha := math.Pi / 180 * ((float64(t.Hour()*60+t.Minute())+eqt+4*lon)/4 - 180)
 	la := math.Pi / 180 * lat
 	return 180 / math.Pi * math.Asin(math.Sin(la)*math.Sin(decl)+math.Cos(la)*math.Cos(decl)*math.Cos(ha))
 }

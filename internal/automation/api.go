@@ -140,12 +140,13 @@ func Register(s *deck.Service, e *Engine) {
 			When     string   `json:"when"`
 			Label    string   `json:"label"`
 			Apply    []string `json:"apply"`
+			Class    []string `json:"class,omitempty"`
 			Display  string   `json:"display,omitempty"`
 			NextFire string   `json:"next_fire,omitempty"`
 		}
 		var rules []ruleInfo
 		for _, r := range cfg.Rule {
-			ri := ruleInfo{ID: r.ID, When: r.When, Label: WhenLabel(r.When), Apply: r.Apply, Display: r.Display}
+			ri := ruleInfo{ID: r.ID, When: r.When, Label: WhenLabel(r.When), Apply: r.Apply, Class: r.Class, Display: r.Display}
 			if t := r.NextFire(cfg, now); !t.IsZero() {
 				ri.NextFire = t.Format("Mon 15:04")
 			}

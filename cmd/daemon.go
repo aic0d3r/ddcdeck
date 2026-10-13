@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/aic0d3r/ddcdeck/internal/appwatch"
 	"github.com/aic0d3r/ddcdeck/internal/deck"
 )
 
@@ -59,6 +60,11 @@ func runDaemon() error {
 		slog.Warn("initial scan failed, waiting for hotplug", "err", err) // keep running: a monitor may appear later
 	}
 	go eng.Run(ctx) // sun/time rules; hotplug rules ride the watcher below
+	if w, err := appwatch.Start(ctx, eng.OnApp); err != nil {
+		slog.Info("app watcher not started", "err", err)
+	} else if w.Active() {
+		defer w.Stop()
+	}
 	var list deck.ListResult
 	if res, err := s.Handle("list", nil); err == nil {
 		list = res.(deck.ListResult)

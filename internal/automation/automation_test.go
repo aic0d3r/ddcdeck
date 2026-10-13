@@ -321,3 +321,56 @@ func waitFor(t *testing.T, cond func() bool) {
 	}
 	t.Fatal("condition not met in time")
 }
+
+func TestAppRuleApplyAndRevert(t *testing.T) {
+	e, _, bus := newEnv(t)
+	writeConfig(t, Config{Rule: []Rule{{
+		When: "app", Class: []string{"darktable", "gimp"}, Apply: []string{"photo"},
+	}}})
+	writeProfile(t, "photo", "[monitor.\"*\"]\nbrightness = 90\nbluelight = 20\n")
+
+	e.OnApp("kitty") // unrelated app: nothing happens
+	bus.mu.Lock()
+	base := bus.vals[0x10].Cur
+	bus.mu.Unlock()
+	if base == 90 {
+		t.Fatal("unrelated class applied the profile")
+	}
+
+	e.OnApp("darktable")
+	waitFor(t, func() bool {
+		bus.mu.Lock()
+		defer bus.mu.Unlock()
+		return bus.vals[0x10].Cur == 90 && bus.vals[0xE6].Cur == 20
+	})
+
+	e.OnApp("darktable") // second window of the same rule: no re-apply, no revert
+	e.OnApp("kitty")
+	waitFor(t, func() bool { // blur: values restored to what they were before
+		bus.mu.Lock()
+		defer bus.mu.Unlock()
+		return bus.vals[0x10].Cur == base && bus.vals[0xE6].Cur == 0
+	})
+}
+
+func TestPauseSurvivesSunTransition(t *testing.T) {
+	e, _, bus := newEnv(t)
+	writeConfig(t, Config{Rule: []Rule{{When: "sunset", Apply: []string{"night"}}}})
+	writeProfile(t, "night", "[monitor.\"*\"]\nbluelight = 20\n")
+	e.mu.Lock()
+	night := IsNight(e.cfg.Location.Lat, e.cfg.Location.Lon, time.Now())
+	e.state.Sun = map[bool]string{true: "day", false: "night"}[night] // opposite of reality
+	e.mu.Unlock()
+	e.SetAuto(false)
+	e.tick(time.Now()) // paused while the sun "crosses"
+	if bus.vals[0xE6].Cur != 0 {
+		t.Fatal("paused engine fired")
+	}
+	e.SetAuto(true)
+	e.tick(time.Now()) // resume: the missed transition fires
+	waitFor(t, func() bool {
+		bus.mu.Lock()
+		defer bus.mu.Unlock()
+		return bus.vals[0xE6].Cur == 20
+	})
+}

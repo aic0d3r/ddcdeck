@@ -46,6 +46,11 @@ ddcdeck auto disable | enable        # pause/resume all triggers
 ddcdeck bluelight schedule sunset    # or "21:00-07:00", or off; --level N
 ```
 
+App rules (KDE only) apply a profile while any of the listed window classes is focused
+and restore the previous values when focus leaves, e.g. `when = "app"`,
+`class = ["darktable", "gimp"]`. The class is the app id KWin reports ("kitty",
+"io.github.aic0d3r.DDCDeck").
+
 Rules live in `~/.config/ddcdeck/rules.toml`, profiles in `~/.config/ddcdeck/profiles/*.toml`
 (see [docs/DESIGN.md](docs/DESIGN.md) for the format). Sun rules use an offline NOAA
 calculation from `[location]` and fire on transitions, including ones missed while the

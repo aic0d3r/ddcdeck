@@ -78,9 +78,6 @@ func LoadConfig() (Config, error) {
 		if err := c.Rule[i].validate(); err != nil {
 			return c, fmt.Errorf("rule %d: %w", i+1, err)
 		}
-		if c.Rule[i].When == "app" {
-			c.Unsupported = append(c.Unsupported, fmt.Sprintf("app rules (%s) need the KWin watcher, not yet built", strings.Join(c.Rule[i].Apply, ",")))
-		}
 	}
 	for i := range c.Shortcut {
 		if c.Shortcut[i].Action == "" || c.Shortcut[i].Keys == "" {
