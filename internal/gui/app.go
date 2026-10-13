@@ -391,32 +391,43 @@ func (a *App) bindShortcuts(scs []ShortcutInfo) {
 		return
 	}
 	a.shortcutsSig = sig
-	if a.scm == nil {
-		a.scm = shortcuts.New()
+	mgr := a.scm
+	if mgr == nil {
+		mgr = shortcuts.New()
+		a.scm = mgr
 		go func() {
-			for id := range a.scm.Activations() {
+			for id := range mgr.Activations() { // ends with the process; a closed Manager just stops delivering
 				id := id
 				idle(func() { a.runAction(id) })
 			}
 		}()
 	}
 	if len(scs) == 0 {
-		a.scm.Close()
-		a.shortcutsErr = ""
+		a.scm = nil // Close is final: the next non-empty list builds a fresh Manager
+		go func() {
+			mgr.Close()
+			idle(func() { a.shortcutsErr = "" })
+		}()
 		return
 	}
 	var list []shortcuts.Shortcut
 	for _, sc := range scs {
 		list = append(list, shortcuts.Shortcut{ID: sc.Action, Description: sc.Action + " (" + sc.Keys + ")"})
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	if err := a.scm.Bind(ctx, list); err != nil {
-		a.shortcutsErr = err.Error()
-		slog.Warn("global shortcuts not bound", "err", err)
-	} else {
-		a.shortcutsErr = ""
-	}
+	go func() { // the portal can take seconds to answer: keep it off the GTK main loop
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		err := mgr.Bind(ctx, list)
+		idle(func() {
+			if err != nil {
+				a.shortcutsErr = err.Error()
+				slog.Warn("global shortcuts not bound", "err", err)
+			} else {
+				a.shortcutsErr = ""
+			}
+			a.refreshAutomation()
+		})
+	}()
 }
 
 func (a *App) runAction(action string) {

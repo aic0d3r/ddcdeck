@@ -185,9 +185,15 @@ func Register(s *deck.Service, e *Engine) {
 		if p.Lat == nil || p.Lon == nil || *p.Lat < -90 || *p.Lat > 90 || *p.Lon < -180 || *p.Lon > 180 {
 			return nil, usage("lat (-90..90) and lon (-180..180) are required")
 		}
+		// load fresh from disk: saving the stale in-memory copy would clobber edits the
+		// engine hasn't reloaded yet (or a rules.toml that currently fails to parse)
+		cfg, err := LoadConfig()
+		if err != nil {
+			return nil, usage("rules.toml is invalid, fix it first: %v", err)
+		}
+		cfg.Location.Lat, cfg.Location.Lon = *p.Lat, *p.Lon
 		e.mu.Lock()
-		e.cfg.Location.Lat, e.cfg.Location.Lon = *p.Lat, *p.Lon
-		cfg := e.cfg
+		e.cfg = cfg
 		e.mu.Unlock()
 		if err := SaveConfig(cfg); err != nil {
 			return nil, &deck.Error{Code: deck.ErrDDC, Message: err.Error()}

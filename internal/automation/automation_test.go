@@ -177,6 +177,33 @@ action = "bluelight toggle"
 	}
 }
 
+// multiCaller serves two monitors, only the first of which matches PA279CRV profiles.
+type multiCaller struct{ sets int }
+
+func (*multiCaller) ListMonitors() []Monitor {
+	return []Monitor{{ID: "A-1", Model: "PA279CRV", Serial: "S1"}, {ID: "B-2", Model: "OTHER", Serial: "S2"}}
+}
+func (c *multiCaller) Set(string, string, any) error { c.sets++; return nil }
+
+func TestApplyProfileMultiMonitor(t *testing.T) {
+	newEnv(t) // isolated config dirs
+	c := &multiCaller{}
+	writeProfile(t, "night", "[monitor.PA279CRV]\nbrightness = 25\n")
+	res := ApplyProfile(c, []string{"night"})
+	if len(res) != 1 || res[0].Display != "A-1" || c.sets != 1 {
+		t.Fatalf("only the matching monitor may be reported, got %+v (sets %d)", res, c.sets)
+	}
+
+	writeProfile(t, "both", "[monitor.\"*\"]\non_apply = [\"/bin/true\"]\n")
+	var hooks int
+	for _, r := range ApplyProfile(c, []string{"both"}) {
+		hooks += len(r.Hooks)
+	}
+	if hooks != 1 {
+		t.Fatalf("on_apply must run once per apply, ran %d times", hooks)
+	}
+}
+
 func TestProfileApplyAndSave(t *testing.T) {
 	e, _, bus := newEnv(t)
 	writeProfile(t, "night", `

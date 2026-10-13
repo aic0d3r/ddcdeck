@@ -2,9 +2,11 @@ package gui
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -457,15 +459,4 @@ func (w *guiWizard) prText(m model.Model, path string) string {
 	return b.String()
 }
 
-func sortedKeys(m map[string]int) []string {
-	ks := make([]string, 0, len(m))
-	for k := range m {
-		ks = append(ks, k)
-	}
-	for i := 1; i < len(ks); i++ {
-		for j := i; j > 0 && ks[j] < ks[j-1]; j-- {
-			ks[j], ks[j-1] = ks[j-1], ks[j]
-		}
-	}
-	return ks
-}
+func sortedKeys(m map[string]int) []string { return slices.Sorted(maps.Keys(m)) }

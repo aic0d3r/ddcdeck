@@ -39,8 +39,9 @@ type Response struct {
 	Error  *Error `json:"error,omitempty"`
 }
 
-// Serve listens on path (mode 0600) until ctx is done.
-func (s *Service) Serve(ctx context.Context, path string) error {
+// Serve listens on path (mode 0600) until ctx is done. ready, if set, runs once the
+// socket exists — e.g. sd_notify READY after the listener, not before it.
+func (s *Service) Serve(ctx context.Context, path string, ready func()) error {
 	if c, err := net.Dial("unix", path); err == nil {
 		c.Close()
 		return errors.New("another ddcdeck daemon is already listening on " + path)
@@ -51,6 +52,9 @@ func (s *Service) Serve(ctx context.Context, path string) error {
 	syscall.Umask(old)
 	if err != nil {
 		return err
+	}
+	if ready != nil {
+		ready()
 	}
 	go func() { <-ctx.Done(); ln.Close() }()
 	for {

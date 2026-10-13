@@ -2,6 +2,8 @@ package gui
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
@@ -106,19 +108,7 @@ func (w *window) rebuildProfiles() {
 	})
 }
 
-func keysOf(m map[string]any) []string {
-	ks := make([]string, 0, len(m))
-	for k := range m {
-		ks = append(ks, k)
-	}
-	// sortedKeys is in widgets.go for features; small local sort keeps this self-contained
-	for i := 1; i < len(ks); i++ {
-		for j := i; j > 0 && ks[j] < ks[j-1]; j-- {
-			ks[j], ks[j-1] = ks[j-1], ks[j]
-		}
-	}
-	return ks
-}
+func keysOf(m map[string]any) []string { return slices.Sorted(maps.Keys(m)) }
 
 // saveProfileDialog asks for a name and which features to store.
 func (w *window) saveProfileDialog() {
@@ -179,18 +169,7 @@ func (w *window) saveProfileDialog() {
 	dlg.Present(&w.win.Window)
 }
 
-func sortedFeatureNames(m *deck.Monitor) []string {
-	ns := make([]string, 0, len(m.Features))
-	for n := range m.Features {
-		ns = append(ns, n)
-	}
-	for i := 1; i < len(ns); i++ {
-		for j := i; j > 0 && ns[j] < ns[j-1]; j-- {
-			ns[j], ns[j-1] = ns[j-1], ns[j]
-		}
-	}
-	return ns
-}
+func sortedFeatureNames(m *deck.Monitor) []string { return slices.Sorted(maps.Keys(m.Features)) }
 
 // buildAutomation: pause switch, location, rule list, shortcuts.
 func buildAutomation(w *window) *adw.PreferencesPage {

@@ -15,7 +15,7 @@ func TestSocketRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "d.sock")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go s.Serve(ctx, path)
+	go s.Serve(ctx, path, nil)
 
 	var c *Client
 	var err error

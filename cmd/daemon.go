@@ -78,9 +78,12 @@ func runDaemon() error {
 		}
 	}()
 	errc := make(chan error, 1)
-	go func() { errc <- s.Serve(ctx, deck.SocketPath()) }()
-	deck.Notify("READY=1")
-	slog.Info("listening", "socket", deck.SocketPath())
+	go func() {
+		errc <- s.Serve(ctx, deck.SocketPath(), func() {
+			deck.Notify("READY=1")
+			slog.Info("listening", "socket", deck.SocketPath())
+		})
+	}()
 	err = <-errc
 	_ = os.Remove(deck.SocketPath())
 	return err

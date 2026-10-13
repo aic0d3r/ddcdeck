@@ -62,7 +62,11 @@ func NewEngine(svc *deck.Service) *Engine {
 	return e
 }
 
+// saveState persists the engine state. It takes e.mu so a save never races a tick
+// mutating the fired map (callers don't hold the lock).
 func (e *Engine) saveState() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	if err := os.MkdirAll(filepath.Dir(e.stateFile), 0o700); err != nil {
 		slog.Warn("engine state not saved", "err", err)
 		return
@@ -125,6 +129,7 @@ func (e *Engine) Run(ctx context.Context) {
 func (e *Engine) tick(now time.Time) {
 	e.reload()
 	var fire []Rule
+	dirty := false // only hit the disk when something actually changed
 	e.mu.Lock()
 	auto, cfg := e.state.Auto, e.cfg
 	// sun state, persisted: a transition that happened while we were down still fires
@@ -132,8 +137,10 @@ func (e *Engine) tick(now time.Time) {
 		want := map[bool]string{true: "night", false: "day"}[night]
 		if e.state.Sun == "" {
 			e.state.Sun = want // first run ever: baseline, no fire
+			dirty = true
 		} else if e.state.Sun != want {
 			e.state.Sun = want
+			dirty = true
 			fire = append(fire, rulesWhen(cfg, map[bool]string{true: "sunset", false: "sunrise"}[night])...)
 		}
 	}
@@ -151,6 +158,7 @@ func (e *Engine) tick(now time.Time) {
 				e.state.Fired = map[string]bool{}
 			}
 			e.state.Fired[key] = true
+			dirty = true
 			fire = append(fire, r)
 		}
 	}
@@ -158,10 +166,13 @@ func (e *Engine) tick(now time.Time) {
 	for k := range e.state.Fired {
 		if d := strings.Split(k, "@"); len(d) == 2 && d[1] != now.Format("2006-01-02") {
 			delete(e.state.Fired, k)
+			dirty = true
 		}
 	}
 	e.mu.Unlock()
-	e.saveState()
+	if dirty {
+		e.saveState()
+	}
 	for _, r := range fire { // outside the lock: applying touches I2C for seconds
 		e.fire(r)
 	}

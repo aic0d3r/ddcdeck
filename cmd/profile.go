@@ -162,7 +162,11 @@ func init() {
 			if err := call("rules.list", map[string]any{}, &res); err != nil {
 				return err
 			}
-			return autoStatus()
+			if jsonFlag {
+				return printJSON(res)
+			}
+			res.render()
+			return nil
 		},
 	})
 }

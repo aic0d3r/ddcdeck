@@ -70,4 +70,21 @@ func TestSaveUserModelMergeAndMCCS(t *testing.T) {
 			t.Errorf("mccs missing %q:\n%s", want, mccs)
 		}
 	}
+	// re-discovering a known feature must update it, not keep the stale code
+	third := Model{Mfg: "AUS", Model: "PA279CRV", Product: 10209, Features: map[string]Feature{
+		"bluelight": {VCP: 0xD0, Type: "range", Max: 10, Verified: true},
+	}}
+	if _, err := SaveUserModel(third); err != nil {
+		t.Fatal(err)
+	}
+	merged, err = LoadProfileModel(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if merged.Features["bluelight"].VCP != 0xD0 {
+		t.Fatalf("re-discovery must win: bluelight VCP = %#x", merged.Features["bluelight"].VCP)
+	}
+	if _, ok := merged.Features["kvm"]; !ok {
+		t.Fatal("merge lost kvm")
+	}
 }

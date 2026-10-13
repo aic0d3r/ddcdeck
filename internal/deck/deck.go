@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -381,7 +381,7 @@ func target(f model.Feature, in string, readCur func() (ddc.Value, error)) (int,
 		if n, err := strconv.ParseInt(in, 0, 32); err == nil && n >= 0 && n <= 0xffff {
 			return int(n), nil
 		}
-		return 0, errf(ErrUsage, "unknown value %q, expected one of: %s", in, strings.Join(sortedKeys(f.Values), ", "))
+		return 0, errf(ErrUsage, "unknown value %q, expected one of: %s", in, strings.Join(slices.Sorted(maps.Keys(f.Values)), ", "))
 	}
 	lo, hi := f.Min, f.Max
 	needCur := hi == 0 || in == "toggle" || strings.HasPrefix(in, "+") || strings.HasPrefix(in, "-")
@@ -509,7 +509,7 @@ func (s *Service) handle(method string, raw json.RawMessage, wait *func() error)
 			return nil, err
 		}
 		res := StatusResult{Display: m.ID, Values: []FeatureValue{}}
-		for _, name := range sortedKeys(m.Features) {
+		for _, name := range slices.Sorted(maps.Keys(m.Features)) {
 			if v, ok := vals[byte(m.Features[name].VCP)]; ok {
 				res.Values = append(res.Values, Present(name, m.Features[name], v))
 			}
@@ -569,15 +569,6 @@ func valueString(raw json.RawMessage) string {
 		return s
 	}
 	return string(raw)
-}
-
-func sortedKeys[V any](m map[string]V) []string {
-	ks := make([]string, 0, len(m))
-	for k := range m {
-		ks = append(ks, k)
-	}
-	sort.Strings(ks)
-	return ks
 }
 
 // Subscribe returns a channel of events; call cancel when done.

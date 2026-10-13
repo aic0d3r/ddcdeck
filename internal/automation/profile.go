@@ -2,8 +2,10 @@ package automation
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -194,24 +196,27 @@ type Monitor struct {
 
 // ApplyProfile applies profiles in order to every connected monitor they match,
 // then runs on_apply hooks (no shell, args split on spaces, 10 s timeout each).
+// Each section's hooks run once per apply — on the first monitor it matches — not once
+// per monitor, so a "*" section doesn't fire its command N times on N screens.
 func ApplyProfile(c Caller, names []string) []applied {
 	mons := c.ListMonitors()
 	var out []applied
 	for _, name := range names {
-		matched := false
 		p, err := LoadProfile(name)
 		if err != nil {
 			out = append(out, applied{Profile: name, Error: err.Error()})
 			continue
 		}
+		ranHooks := map[string]bool{} // section match → its on_apply already ran
 		for _, m := range mons {
 			res := applied{Display: m.ID, Profile: name}
+			matched := false
 			for _, s := range p.Monitors {
 				if !matches(s.Match, m.Model, m.Serial, m.ID) {
 					continue
 				}
 				matched = true
-				for _, f := range sortedAny(s.Fields) {
+				for _, f := range slices.Sorted(maps.Keys(s.Fields)) {
 					if err := c.Set(m.ID, f, s.Fields[f]); err != nil {
 						if strings.Contains(err.Error(), "support") {
 							res.Skipped = append(res.Skipped, f)
@@ -222,11 +227,14 @@ func ApplyProfile(c Caller, names []string) []applied {
 					}
 					res.Fields = append(res.Fields, f)
 				}
-				for _, cmd := range s.OnApply {
-					if err := runHook(cmd); err != nil {
-						res.Error = err.Error()
-					} else {
-						res.Hooks = append(res.Hooks, cmd)
+				if !ranHooks[s.Match] {
+					ranHooks[s.Match] = true
+					for _, cmd := range s.OnApply {
+						if err := runHook(cmd); err != nil {
+							res.Error = err.Error()
+						} else {
+							res.Hooks = append(res.Hooks, cmd)
+						}
 					}
 				}
 			}
@@ -236,13 +244,4 @@ func ApplyProfile(c Caller, names []string) []applied {
 		}
 	}
 	return out
-}
-
-func sortedAny(m map[string]any) []string {
-	ks := make([]string, 0, len(m))
-	for k := range m {
-		ks = append(ks, k)
-	}
-	sort.Strings(ks)
-	return ks
 }
