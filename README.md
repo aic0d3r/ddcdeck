@@ -57,6 +57,22 @@ assign keys in *System Settings → Shortcuts → DDC Deck* (the `keys` value in
 a documented suggestion). The portal only accepts apps launched from the desktop entry or
 autostart, not from a terminal.
 
+### Discovering vendor features
+
+`ddcdeck list` shows only mapped features. Every monitor also reports a list of VCP codes it
+understands; the GUI's Settings page shows the unmapped ones. To map a vendor feature
+(blue light, KVM, presets…), run the wizard and follow the prompts — you change one setting
+in the monitor's OSD, ddcdeck diffs all ~90 codes and narrows it down:
+
+```sh
+ddcdeck discover                  # or: ddcdeck discover --feature kvm
+ddcdeck model export-mccs         # regenerate ~/.local/share/ddcutil/*.mccs for ddcutil users
+```
+
+The result lands in `~/.local/share/ddcdeck/models/` immediately; submit it as a PR to
+`data/models/` so it ships for everyone (the repo is the model database — no online
+service, lookups never phone home).
+
 ## Usage
 
 ```sh

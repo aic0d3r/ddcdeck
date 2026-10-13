@@ -25,7 +25,7 @@ Display 1
 
 func TestParseGet(t *testing.T) {
 	out := "Feature 01 (Degauss) is not readable\nVCP 10 C 40 100\nVCP 60 SNC x1a\nVCP 14 CNC x00 x0f x00 x05\n"
-	want := map[byte]Value{0x10: {40, 100}, 0x60: {0x1a, 0}, 0x14: {5, 0x0f}}
+	want := map[byte]Value{0x10: {Cur: 40, Max: 100}, 0x60: {Cur: 0x1a, NC: true}, 0x14: {Cur: 5, Max: 0x0f, NC: true}}
 	if got := parseGet(out); !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %+v", got)
 	}

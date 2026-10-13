@@ -58,6 +58,7 @@ type Monitor struct {
 	Bus       int                      `json:"bus"`
 	HasModel  bool                     `json:"has_model_file"`
 	Features  map[string]model.Feature `json:"features"`
+	Caps      map[string][]int         `json:"caps,omitempty"` // VCP codes the monitor reports, hex keys
 }
 
 // Event is pushed to subscribers.
@@ -118,6 +119,9 @@ func (s *Service) bus(n int) *sync.Mutex {
 
 // Scan re-detects monitors and emits hotplug events for changes. Returns the current list.
 func (s *Service) Scan() ([]*Monitor, error) {
+	if ms, err := model.Load(); err == nil || len(ms) > 0 {
+		s.models = ms // re-read: wizard output and user files land without a daemon restart
+	}
 	ds, err := s.be.Detect()
 	if err != nil {
 		return nil, errf(ErrDDC, "%v", err)
@@ -144,6 +148,12 @@ func (s *Service) Scan() ([]*Monitor, error) {
 		mm := model.Match(s.models, m.Mfg, m.Model, m.Product)
 		m.HasModel = mm != nil
 		m.Features = model.Resolve(mm, caps)
+		if len(caps) > 0 {
+			m.Caps = map[string][]int{}
+			for c, vs := range caps {
+				m.Caps[fmt.Sprintf("%02x", c)] = vs
+			}
+		}
 		mons = append(mons, m)
 	}
 

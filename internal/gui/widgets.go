@@ -25,6 +25,9 @@ var titles = map[string]string{
 	"preset":     "Picture preset",
 	"input":      "Input source",
 	"kvm":        "KVM / USB upstream",
+	"power":      "Power mode",
+	"volume":     "Volume",
+	"mute":       "Mute",
 }
 
 func title(feature string) string {

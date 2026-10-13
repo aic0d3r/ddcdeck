@@ -3,8 +3,13 @@ package gui
 import (
 	"encoding/json"
 	"fmt"
+	"os/exec"
+	"regexp"
 	"slices"
+	"sort"
+	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
 	coreglib "github.com/diamondburned/gotk4/pkg/core/glib"
@@ -15,7 +20,7 @@ import (
 )
 
 // placed features have a fixed spot; anything else a model file defines lands under "More".
-var placed = []string{"brightness", "contrast", "sharpness", "bluelight", "colortemp", "preset", "input", "kvm"}
+var placed = []string{"brightness", "contrast", "sharpness", "bluelight", "colortemp", "preset", "input", "kvm", "power", "volume", "mute"}
 
 type page struct {
 	name, title, icon string
@@ -217,6 +222,8 @@ func buildDisplay(w *window) *adw.PreferencesPage {
 	return prefsPage(
 		group(a, b, "Picture", "brightness", "contrast", "sharpness"),
 		group(a, b, "Eye care", "bluelight"),
+		group(a, b, "Audio", "volume", "mute"),
+		group(a, b, "Power", "power"),
 		group(a, b, "More", more...),
 	)
 }
@@ -298,7 +305,73 @@ func buildSettings(w *window) *adw.PreferencesPage {
 		unsup.SetTitle("Not supported on this monitor")
 		unsup.SetDescription(strings.Join(missing, ", "))
 	}
-	return prefsPage(info, unsup, rawVCP(w))
+	return prefsPage(info, unsup, unmapped(w), rawVCP(w))
+}
+
+// unmapped lists codes the monitor reports but no feature maps, named where ddcutil's
+// MCCS table knows them (queried at runtime: the table is GPL, we don't copy it).
+func unmapped(w *window) *adw.PreferencesGroup {
+	a := w.a
+	if len(a.cur.Caps) == 0 {
+		return nil
+	}
+	used := map[byte]bool{}
+	for _, f := range a.cur.Features {
+		used[byte(f.VCP)] = true
+	}
+	names := vcpinfoNames()
+	var rows []string
+	for hex, values := range a.cur.Caps {
+		c, err := strconv.ParseUint(hex, 16, 8)
+		if err != nil || used[byte(c)] {
+			continue
+		}
+		name := names[byte(c)]
+		if name == "" || strings.Contains(strings.ToLower(name), "reserved") {
+			name = "manufacturer-specific"
+		}
+		row := fmt.Sprintf("VCP %02X — %s", c, name)
+		if len(values) > 0 {
+			vs := make([]string, len(values))
+			for i, v := range values {
+				vs[i] = fmt.Sprintf("%02X", v)
+			}
+			row += " (" + strings.Join(vs, " ") + ")"
+		}
+		rows = append(rows, row)
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	sort.Strings(rows)
+	g := adw.NewPreferencesGroup()
+	g.SetTitle("Reported by the monitor, not mapped")
+	g.SetDescription("Run `ddcdeck discover` in a terminal to map vendor features.")
+	for _, r := range rows {
+		row := adw.NewActionRow()
+		row.SetTitle(r)
+		row.SetTitleSelectable(true)
+		g.Add(row)
+	}
+	return g
+}
+
+var vcpinfoOnce sync.Once
+var vcpinfoMap map[byte]string
+
+func vcpinfoNames() map[byte]string {
+	vcpinfoOnce.Do(func() {
+		vcpinfoMap = map[byte]string{}
+		out, err := exec.Command("ddcutil", "vcpinfo", "--verbose").Output()
+		if err != nil {
+			return
+		}
+		for _, m := range regexp.MustCompile(`(?m)^VCP code ([0-9a-fA-F]{2}): (.+)$`).FindAllStringSubmatch(string(out), -1) {
+			c, _ := strconv.ParseUint(m[1], 16, 8)
+			vcpinfoMap[byte(c)] = strings.TrimSpace(m[2])
+		}
+	})
+	return vcpinfoMap
 }
 
 // rawVCP is the escape hatch: read or write any VCP code.

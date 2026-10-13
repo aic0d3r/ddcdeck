@@ -12,10 +12,12 @@ import (
 	"time"
 )
 
-// Value is a VCP reading. Max is 0 when the monitor doesn't report one (simple NC).
+// Value is a VCP reading. Max is 0 when the monitor doesn't report one. NC marks
+// non-continuous codes (enum-like); the wizard uses it to infer the feature type.
 type Value struct {
-	Cur int `json:"value"`
-	Max int `json:"max"`
+	Cur int  `json:"value"`
+	Max int  `json:"max"`
+	NC  bool `json:"nc,omitempty"`
 }
 
 // Display is one DDC-capable monitor found by Detect.
@@ -174,9 +176,9 @@ func parseGet(out string) map[byte]Value {
 		case f[2] == "C" && len(f) >= 5:
 			vals[byte(code)] = Value{Cur: num(f[3]), Max: num(f[4])}
 		case f[2] == "SNC":
-			vals[byte(code)] = Value{Cur: num(f[3])}
+			vals[byte(code)] = Value{Cur: num(f[3]), NC: true}
 		case f[2] == "CNC" && len(f) >= 7:
-			vals[byte(code)] = Value{Cur: num(f[5])<<8 | num(f[6]), Max: num(f[3])<<8 | num(f[4])}
+			vals[byte(code)] = Value{Cur: num(f[5])<<8 | num(f[6]), Max: num(f[3])<<8 | num(f[4]), NC: true}
 		}
 	}
 	return vals
