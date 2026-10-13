@@ -50,6 +50,7 @@ type window struct {
 	status    *adw.StatusPage
 	picker    *gtk.DropDown
 	pickerH   coreglib.SignalHandle // handler id, blocked while the model is replaced
+	banner    *adw.Banner
 	profGroup *adw.PreferencesGroup
 	profRows  []*adw.ActionRow
 	binder    *binder
@@ -97,7 +98,7 @@ func newWindow(a *App) *window {
 	hb.SetTitleWidget(w.picker)
 	autoBtn := gtk.NewToggleButton()
 	autoBtn.SetIconName("alarm-symbolic")
-	autoBtn.SetTooltipText("Automation running — click to pause")
+	autoBtn.SetTooltipText("Automation runs your rules automatically — sunset times, docking, focused apps.\nClick to pause it; manual changes always work.")
 	autoBtn.ConnectToggled(func() {
 		if !a.syncing {
 			a.setAuto(autoBtn.Active())
@@ -110,9 +111,15 @@ func newWindow(a *App) *window {
 	w.status = adw.NewStatusPage()
 	w.status.SetIconName("video-display-symbolic")
 	w.stack.AddNamed(w.status, "status")
+	w.banner = adw.NewBanner("This monitor works, but its special features need one guided pass")
+	w.banner.SetButtonLabel("Discover features…")
+	w.banner.ConnectButtonClicked(func() { a.openWizard() })
+	content := gtk.NewBox(gtk.OrientationVertical, 0)
+	content.Append(w.banner)
+	content.Append(w.stack)
 	contentTV := adw.NewToolbarView()
 	contentTV.AddTopBar(hb)
-	contentTV.SetContent(w.stack)
+	contentTV.SetContent(content)
 	w.content = adw.NewNavigationPage(contentTV, "Display")
 
 	w.split = adw.NewNavigationSplitView()
@@ -132,6 +139,7 @@ func newWindow(a *App) *window {
 }
 
 func (w *window) showStatus(title, detail string) {
+	w.banner.SetRevealed(false)
 	w.status.SetTitle(title)
 	w.status.SetDescription(detail)
 	w.stack.SetVisibleChildName("status")
@@ -180,6 +188,7 @@ func (w *window) rebuild() {
 	w.picker.HandlerUnblock(w.pickerH)
 	w.picker.SetVisible(true)
 	w.sidebar.SetSensitive(true)
+	w.banner.SetRevealed(!a.cur.HasModel && w.stack.VisibleChildName() != "settings")
 
 	if visible == "status" || w.stack.ChildByName(visible) == nil {
 		visible = first
@@ -195,6 +204,9 @@ func (w *window) show(name string) {
 			w.sidebar.SelectRow(w.rows[i])
 			w.split.SetShowContent(true)
 		}
+	}
+	if w.a.cur != nil {
+		w.banner.SetRevealed(name != "settings" && !w.a.cur.HasModel)
 	}
 }
 
@@ -286,7 +298,13 @@ func buildSettings(w *window) *adw.PreferencesPage {
 	info := adw.NewPreferencesGroup()
 	info.SetTitle("This monitor")
 	info.Add(prop("Model", fmt.Sprintf("%s %s", brand(m.Mfg), m.Model)))
-	info.Add(prop("Connection", connection(m.Connector, m.Bus)))
+	conn := prop("Connection", connection(m.Connector, m.Bus, a.vals["input"].Name))
+	w.binder.on("input", func(fv deck.FeatureValue) {
+		if fv.Name != "" {
+			conn.SetSubtitle(connection(m.Connector, m.Bus, fv.Name))
+		}
+	})
+	info.Add(conn)
 
 	// tier 2: vendor support in one place, with the guided way out
 	vendor := adw.NewPreferencesGroup()
@@ -358,8 +376,13 @@ func brand(mfg string) string {
 	return mfg
 }
 
-// connection renders a connector without its index noise: "DP-8" → "DisplayPort".
-func connection(conn string, bus int) string {
+// connection names the physical cable. DRM connectors can't distinguish USB-C
+// (DisplayPort alt mode) from a native DP port — but the monitor knows which input
+// it is receiving, so prefer that; fall back to the connector name.
+func connection(conn string, bus int, input string) string {
+	if input == "usbc" {
+		return fmt.Sprintf("USB-C (%s), bus %d", conn, bus)
+	}
 	base := conn
 	if i := strings.IndexByte(conn, '-'); i > 0 {
 		base = conn[:i]
@@ -368,6 +391,11 @@ func connection(conn string, bus int) string {
 		"DP": "DisplayPort", "HDMI": "HDMI", "HDMI-A": "HDMI", "HDMI-B": "HDMI",
 		"eDP": "Built-in display", "DVI": "DVI", "VGA": "VGA",
 	}[base]
+	if strings.HasPrefix(input, "hdmi") {
+		kind = "HDMI"
+	} else if strings.HasPrefix(input, "dp") {
+		kind = "DisplayPort"
+	}
 	if kind == "" {
 		kind = base
 	}
