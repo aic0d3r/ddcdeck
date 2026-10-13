@@ -193,7 +193,9 @@ Automates the manual method used to find blue light = `0xE6`:
 ## 7. Milestones
 
 1. **Core:** daemon, cache/queue, EDID registry, CLI basic features, PA279CRV model file,
-   migrate the `~/.local/bin/bluelight` script.
+   migrate the `~/.local/bin/bluelight` script. *Done except the script migration (waits
+   for milestone 2 rules) and `model export-mccs`. Extra API method: `monitor` (resolved
+   selector + features).*
 2. **Automation:** profiles, time/sunset + hotplug rules, shortcuts portal.
 3. **GUI:** window + tray on the socket API.
 4. **Community:** discovery wizard, KWin app watcher, AUR package, docs site.

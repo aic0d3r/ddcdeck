@@ -1,0 +1,13 @@
+[Unit]
+Description=DDC Deck monitor control daemon
+Documentation=https://github.com/aic0d3r/ddcdeck
+After=graphical-session.target
+
+[Service]
+Type=notify
+ExecStart=%h/.local/bin/ddcdeckd
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
