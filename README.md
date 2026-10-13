@@ -105,9 +105,11 @@ ddcdeck model export-mccs         # regenerate ~/.local/share/ddcutil/*.mccs for
 # or click "Discover…" in the GUI's Settings page — same flow, saves both files
 ```
 
-The result lands in `~/.local/share/ddcdeck/models/` immediately; submit it as a PR to
-`data/models/` so it ships for everyone (the repo is the model database — no online
-service, lookups never phone home).
+The result lands in `~/.local/share/ddcdeck/models/` immediately, and submitting it is one
+click — the wizard's **Submit to community database** button (or `ddcdeck model submit`)
+opens a prefilled GitHub issue containing the whole model file; you review it and press
+Submit there. A maintainer merges it into `data/models/` so it ships for everyone (the repo
+is the model database — nothing is uploaded until you press Submit in the browser).
 
 ## Usage
 

@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"os"
@@ -427,10 +428,19 @@ func (w *guiWizard) save() {
 		})
 	})
 
-	copyBtn := gtk.NewButtonWithLabel("Copy for GitHub PR")
+	copyBtn := gtk.NewButtonWithLabel("Copy model file")
 	copyBtn.ConnectClicked(func() {
-		gdk.DisplayGetDefault().Clipboard().SetText(w.prText(disco, modelPath))
-		w.a.toast("Copied — paste it into a GitHub issue or PR")
+		gdk.DisplayGetDefault().Clipboard().SetText(w.prText(modelPath))
+		w.a.toast("Copied — for a forum post, or if the browser route fails")
+	})
+	submit := gtk.NewButtonWithLabel("Submit to community database")
+	submit.AddCSSClass("suggested-action")
+	submit.ConnectClicked(func() {
+		toml, _ := os.ReadFile(modelPath) // the whole accumulated file: one issue per monitor
+		// The user reviews the prefilled issue; nothing leaves this machine until they
+		// press Submit in the browser.
+		gtk.NewURILauncher(disco.SubmitURL(string(toml))).Launch(context.Background(), nil, nil)
+		w.a.toast("Opening the browser — review and press Submit")
 	})
 	another := gtk.NewButtonWithLabel("Discover another")
 	another.ConnectClicked(func() {
@@ -442,6 +452,7 @@ func (w *guiWizard) save() {
 		fmt.Sprintf("The feature works right away: try “%s” on the Display page or `ddcdeck %s get`.\nModel file: %s", w.name, w.name, modelPath),
 		func(b *gtk.Box) {
 			row := gtk.NewBox(gtk.OrientationHorizontal, 8)
+			row.Append(submit)
 			row.Append(copyBtn)
 			row.Append(another)
 			b.Append(row)
@@ -449,14 +460,9 @@ func (w *guiWizard) save() {
 		"Close", "", func() { w.dlg.Close() }, nil)
 }
 
-func (w *guiWizard) prText(m model.Model, path string) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "Feature `%s` for %s %s (product %d), found with `ddcdeck discover`.\n\n", w.name, w.mon.Mfg, w.mon.Model, w.mon.Product)
-	if b2, err := os.ReadFile(path); err == nil {
-		b.Write(b2)
-	}
-	b.WriteString("\n`ddcdeck model export-mccs` regenerates the ddcutil file from it.\n")
-	return b.String()
+func (w *guiWizard) prText(path string) string {
+	b, _ := os.ReadFile(path)
+	return string(b)
 }
 
 func sortedKeys(m map[string]int) []string { return slices.Sorted(maps.Keys(m)) }

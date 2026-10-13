@@ -65,7 +65,10 @@ func TestSaveUserModelMergeAndMCCS(t *testing.T) {
 		t.Fatalf("merge lost bluelight: %+v", merged.Features)
 	}
 	mccs := merged.MCCS()
-	for _, want := range []string{"MFG_ID       AUS", "FEATURE_CODE E6 bluelight", "ATTRS RW C", "FEATURE_CODE F5 kvm", "ATTRS RW NC"} {
+	for _, want := range []string{
+		"MFG_ID       AUS", "FEATURE_CODE E6 bluelight", "ATTRS RW C",
+		"FEATURE_CODE F5 kvm", "ATTRS RW NC", "VALUE x01 usb1", // names ddcutil shows for enum values
+	} {
 		if !strings.Contains(mccs, want) {
 			t.Errorf("mccs missing %q:\n%s", want, mccs)
 		}

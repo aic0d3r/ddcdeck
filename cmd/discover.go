@@ -70,7 +70,7 @@ func runDiscover(*cobra.Command, []string) error {
 			} else {
 				fmt.Printf("Saved %s\n  model file:  %s\n  ddcutil file: %s\n", name, path, mccs)
 				fmt.Printf("Try it: ddcdeck %s get   (restart ddcdeckd if it's running)\n", name)
-				fmt.Println("Submit it: copy the model file into data/models/ and open a PR.")
+				fmt.Println("Share it: ddcdeck model submit  (opens a prefilled GitHub issue)")
 			}
 		}
 		if discoverFeature != "" || !yes(in, "Discover another feature?") {

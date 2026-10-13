@@ -136,6 +136,10 @@ func (m Model) MCCS() string {
 			kind = "NC"
 		}
 		fmt.Fprintf(&b, "FEATURE_CODE %02X %s\n  ATTRS RW %s\n", f.VCP, name, kind)
+		for _, vn := range slices.Sorted(maps.Keys(f.Values)) {
+			// the leading x matters: ddcutil reads bare numbers as decimal (x11 = 17, 11 = 11)
+			fmt.Fprintf(&b, "  VALUE x%02X %s\n", f.Values[vn], vn)
+		}
 	}
 	return b.String()
 }

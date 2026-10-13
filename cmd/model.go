@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -13,6 +14,18 @@ import (
 	"github.com/aic0d3r/ddcdeck/internal/model"
 )
 
+// modelID resolves the model an argument names, else the selected monitor's.
+func modelID(a []string) (string, error) {
+	if id := strings.Join(a, " "); id != "" {
+		return id, nil
+	}
+	var mon deck.Monitor
+	if err := call("monitor", deck.Params{}, &mon); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s-%s-%d", mon.Mfg, mon.Model, mon.Product), nil
+}
+
 func init() {
 	m := &cobra.Command{Use: "model", Short: "Model file utilities"}
 	m.AddCommand(&cobra.Command{
@@ -20,13 +33,9 @@ func init() {
 		Short: "Write the ddcutil user-defined features file for a model",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, a []string) error {
-			id := strings.Join(a, " ")
-			if id == "" {
-				var mon deck.Monitor
-				if err := call("monitor", deck.Params{}, &mon); err != nil {
-					return err
-				}
-				id = fmt.Sprintf("%s-%s-%d", mon.Mfg, mon.Model, mon.Product)
+			id, err := modelID(a)
+			if err != nil {
+				return err
 			}
 			parts := strings.Split(id, "-")
 			if len(parts) != 3 {
@@ -49,6 +58,35 @@ func init() {
 			}
 			if !quietFlag {
 				fmt.Println(path)
+			}
+			return nil
+		},
+	})
+	m.AddCommand(&cobra.Command{
+		Use:   "submit [MFG-MODEL-PRODUCT]",
+		Short: "Share this monitor's model file: opens a prefilled GitHub issue",
+		Long: "Opens the browser on a GitHub issue that already contains the whole model file.\n" +
+			"Review it, press Submit, and a maintainer merges it into data/models/ — that is how\n" +
+			"the community database grows. Nothing is uploaded until you press Submit there.",
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(_ *cobra.Command, a []string) error {
+			id, err := modelID(a)
+			if err != nil {
+				return err
+			}
+			path := filepath.Join(model.UserModelsDir(), id+".toml")
+			b, err := os.ReadFile(path)
+			if err != nil {
+				return fmt.Errorf("nothing discovered for %s yet — run `ddcdeck discover` first", id)
+			}
+			mm, err := model.LoadProfileModel(path)
+			if err != nil {
+				return fmt.Errorf("%s: %w", path, err)
+			}
+			u := mm.SubmitURL(string(b))
+			fmt.Println(u) // printed first: the copy-paste path when there is no browser
+			if err := exec.Command("xdg-open", u).Start(); err != nil {
+				fmt.Println("Open the URL in a browser to file the issue.")
 			}
 			return nil
 		},
