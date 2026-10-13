@@ -17,6 +17,7 @@ import (
 
 	"github.com/aic0d3r/ddcdeck/internal/ddc"
 	"github.com/aic0d3r/ddcdeck/internal/deck"
+	"github.com/aic0d3r/ddcdeck/internal/model"
 )
 
 // placed features have a fixed spot; anything else a model file defines lands under "More".
@@ -30,7 +31,6 @@ type page struct {
 func pageList() []page {
 	return []page{
 		{"display", "Display", "display-brightness-symbolic", buildDisplay},
-		{"color", "Color", "color-management-symbolic", buildColor},
 		{"input", "Input", "video-display-symbolic", buildInput},
 		{"profiles", "Profiles", "starred-symbolic", buildProfiles},
 		{"automation", "Automation", "alarm-symbolic", buildAutomation},
@@ -223,15 +223,12 @@ func buildDisplay(w *window) *adw.PreferencesPage {
 	slices.Sort(more)
 	return prefsPage(
 		group(a, b, "Picture", "brightness", "contrast", "sharpness"),
+		group(a, b, "Color", "preset", "colortemp"),
 		group(a, b, "Eye care", "bluelight"),
 		group(a, b, "Audio", "volume", "mute"),
 		group(a, b, "Power", "power"),
 		group(a, b, "More", more...),
 	)
-}
-
-func buildColor(w *window) *adw.PreferencesPage {
-	return prefsPage(group(w.a, w.binder, "Color", "preset", "colortemp"))
 }
 
 // buildInput shows inputs as radio rows (one click, current one checked) plus KVM.
@@ -276,45 +273,114 @@ func buildInput(w *window) *adw.PreferencesPage {
 func buildSettings(w *window) *adw.PreferencesPage {
 	a := w.a
 	m := a.cur
-	info := adw.NewPreferencesGroup()
-	info.SetTitle("Monitor")
-	row := func(g *adw.PreferencesGroup, title, value string) {
+	prop := func(title, value string) *adw.ActionRow {
 		r := adw.NewActionRow()
 		r.SetTitle(title)
 		r.SetSubtitle(value)
 		r.SetSubtitleSelectable(true)
 		r.AddCSSClass("property")
-		g.Add(r)
-	}
-	row(info, "Model", fmt.Sprintf("%s %s (product %d)", m.Mfg, m.Model, m.Product))
-	row(info, "Serial", m.Serial)
-	row(info, "Connection", fmt.Sprintf("%s, I²C bus %d", m.Connector, m.Bus))
-	if m.HasModel {
-		row(info, "Model file", "Loaded: vendor features available")
-	} else {
-		row(info, "Model file", "None: standard MCCS features only")
+		return r
 	}
 
+	// tier 1: identity, plain words
+	info := adw.NewPreferencesGroup()
+	info.SetTitle("This monitor")
+	info.Add(prop("Model", fmt.Sprintf("%s %s", brand(m.Mfg), m.Model)))
+	info.Add(prop("Connection", connection(m.Connector, m.Bus)))
+
+	// tier 2: vendor support in one place, with the guided way out
+	vendor := adw.NewPreferencesGroup()
+	vendor.SetTitle("Vendor features")
+	var known []string
+	for name := range m.Features {
+		if _, std := model.Defaults()[name]; !std {
+			known = append(known, title(name))
+		}
+	}
+	sort.Strings(known)
+	if m.HasModel && len(known) > 0 {
+		vendor.Add(prop("Community file loaded", "Extra features: "+strings.Join(known, ", ")))
+	} else {
+		vendor.Add(prop("No community file for this model", "Standard features only — discover the rest below."))
+	}
+	if missing := missingTitles(m); len(missing) > 0 {
+		vendor.Add(prop("Not available on this monitor", strings.Join(missing, ", ")))
+	}
+	disco := adw.NewActionRow()
+	disco.SetTitle("Map more features")
+	disco.SetSubtitle("Change a setting in the monitor's menu; DDC Deck finds the code behind it.")
+	start := gtk.NewButtonWithLabel("Discover…")
+	start.SetTooltipText("Guided discovery of vendor VCP codes by diffing OSD changes")
+	start.SetVAlign(gtk.AlignCenter)
+	start.ConnectClicked(func() { a.openWizard() })
+	disco.AddSuffix(start)
+	vendor.Add(disco)
+
+	// tier 3: jargon behind one collapsed expander
+	adv := adw.NewExpanderRow()
+	adv.SetTitle("Advanced")
+	adv.SetSubtitle("Raw VCP codes — power-user territory")
+	adv.AddRow(prop("Serial number", m.Serial))
+	adv.AddRow(prop("Product code", strconv.Itoa(m.Product)))
+	adv.AddRow(prop("Model file", fmt.Sprintf("%s (data/models/%s-%s-%d.toml)", map[bool]string{true: "loaded", false: "none"}[m.HasModel], m.Mfg, m.Model, m.Product)))
+	for _, r := range unmappedRows(a) {
+		adv.AddRow(r)
+	}
+	for _, r := range rawVCPRows(w) {
+		adv.AddRow(r)
+	}
+	advanced := adw.NewPreferencesGroup()
+	advanced.Add(adv)
+
+	return prefsPage(info, vendor, advanced)
+}
+
+func missingTitles(m *deck.Monitor) []string {
 	var missing []string
 	for _, name := range placed {
 		if _, ok := m.Features[name]; !ok {
 			missing = append(missing, title(name))
 		}
 	}
-	var unsup *adw.PreferencesGroup
-	if len(missing) > 0 {
-		unsup = adw.NewPreferencesGroup()
-		unsup.SetTitle("Not supported on this monitor")
-		unsup.SetDescription(strings.Join(missing, ", "))
+	return missing
+}
+
+// brand turns an EDID PNP id into the vendor name users know.
+func brand(mfg string) string {
+	names := map[string]string{
+		"AUS": "ASUS", "SAM": "Samsung", "DEL": "Dell", "BNQ": "BenQ", "GSM": "LG",
+		"HPN": "HP", "IVM": "Iiyama", "AOC": "AOC", "PHL": "Philips", "MED": "Medion",
+		"ACR": "Acer", "LEN": "Lenovo", "MSI": "MSI", "GWB": "Gateway", "NEC": "NEC",
 	}
-	return prefsPage(info, unsup, unmapped(w), rawVCP(w))
+	if n, ok := names[strings.ToUpper(mfg)]; ok {
+		return n
+	}
+	return mfg
+}
+
+// connection renders a connector without its index noise: "DP-8" → "DisplayPort".
+func connection(conn string, bus int) string {
+	base := conn
+	if i := strings.IndexByte(conn, '-'); i > 0 {
+		base = conn[:i]
+	}
+	kind := map[string]string{
+		"DP": "DisplayPort", "HDMI": "HDMI", "HDMI-A": "HDMI", "HDMI-B": "HDMI",
+		"eDP": "Built-in display", "DVI": "DVI", "VGA": "VGA",
+	}[base]
+	if kind == "" {
+		kind = base
+	}
+	return fmt.Sprintf("%s (%s), bus %d", kind, conn, bus)
 }
 
 // unmapped lists codes the monitor reports but no feature maps, named where ddcutil's
 // MCCS table knows them (queried at runtime: the table is GPL, we don't copy it).
-func unmapped(w *window) *adw.PreferencesGroup {
-	a := w.a
-	if len(a.cur.Caps) == 0 {
+
+// unmappedRows lists codes the monitor reports but no feature maps, named where
+// ddcutil's MCCS table knows them (queried at runtime: the table is GPL, we don't copy it).
+func unmappedRows(a *App) []*adw.ActionRow {
+	if a.cur == nil || len(a.cur.Caps) == 0 {
 		return nil
 	}
 	used := map[byte]bool{}
@@ -322,7 +388,7 @@ func unmapped(w *window) *adw.PreferencesGroup {
 		used[byte(f.VCP)] = true
 	}
 	names := vcpinfoNames()
-	var rows []string
+	var rows []*adw.ActionRow
 	for hex, values := range a.cur.Caps {
 		c, err := strconv.ParseUint(hex, 16, 8)
 		if err != nil || used[byte(c)] {
@@ -332,60 +398,25 @@ func unmapped(w *window) *adw.PreferencesGroup {
 		if name == "" || strings.Contains(strings.ToLower(name), "reserved") {
 			name = "manufacturer-specific"
 		}
-		row := fmt.Sprintf("VCP %02X — %s", c, name)
+		r := adw.NewActionRow()
+		r.SetTitle(fmt.Sprintf("VCP %02X — %s", c, name))
+		r.SetTitleSelectable(true)
 		if len(values) > 0 {
 			vs := make([]string, len(values))
 			for i, v := range values {
 				vs[i] = fmt.Sprintf("%02X", v)
 			}
-			row += " (" + strings.Join(vs, " ") + ")"
+			r.SetSubtitle("values: " + strings.Join(vs, " "))
 		}
-		rows = append(rows, row)
+		rows = append(rows, r)
 	}
-	if len(rows) == 0 {
-		return nil
-	}
-	sort.Strings(rows)
-	g := adw.NewPreferencesGroup()
-	g.SetTitle("Reported by the monitor, not mapped")
-	start := gtk.NewButtonWithLabel("Discover…")
-	start.SetTooltipText("Map a vendor feature by changing it in the monitor's OSD")
-	start.SetVAlign(gtk.AlignCenter)
-	start.ConnectClicked(func() { a.openWizard() })
-	g.SetHeaderSuffix(start)
-	for _, r := range rows {
-		row := adw.NewActionRow()
-		row.SetTitle(r)
-		row.SetTitleSelectable(true)
-		g.Add(row)
-	}
-	return g
+	sort.Slice(rows, func(i, j int) bool { return rows[i].Title() < rows[j].Title() })
+	return rows
 }
 
-var vcpinfoOnce sync.Once
-var vcpinfoMap map[byte]string
-
-func vcpinfoNames() map[byte]string {
-	vcpinfoOnce.Do(func() {
-		vcpinfoMap = map[byte]string{}
-		out, err := exec.Command("ddcutil", "vcpinfo", "--verbose").Output()
-		if err != nil {
-			return
-		}
-		for _, m := range regexp.MustCompile(`(?m)^VCP code ([0-9a-fA-F]{2}): (.+)$`).FindAllStringSubmatch(string(out), -1) {
-			c, _ := strconv.ParseUint(m[1], 16, 8)
-			vcpinfoMap[byte(c)] = strings.TrimSpace(m[2])
-		}
-	})
-	return vcpinfoMap
-}
-
-// rawVCP is the escape hatch: read or write any VCP code.
-func rawVCP(w *window) *adw.PreferencesGroup {
+// rawVCPRows is the escape hatch: read or write any VCP code.
+func rawVCPRows(w *window) []gtk.Widgetter {
 	a := w.a
-	g := adw.NewPreferencesGroup()
-	g.SetTitle("Raw VCP")
-	g.SetDescription("Read or write any VCP code. Writing unknown codes can change monitor settings unexpectedly.")
 	code := adw.NewEntryRow()
 	code.SetTitle("Code (hex, e.g. E6)")
 	val := adw.NewEntryRow()
@@ -422,8 +453,23 @@ func rawVCP(w *window) *adw.PreferencesGroup {
 			a.refresh()
 		})
 	})
-	g.Add(code)
-	g.Add(val)
-	g.Add(result)
-	return g
+	return []gtk.Widgetter{code, val, result}
+}
+
+var vcpinfoOnce sync.Once
+var vcpinfoMap map[byte]string
+
+func vcpinfoNames() map[byte]string {
+	vcpinfoOnce.Do(func() {
+		vcpinfoMap = map[byte]string{}
+		out, err := exec.Command("ddcutil", "vcpinfo", "--verbose").Output()
+		if err != nil {
+			return
+		}
+		for _, m := range regexp.MustCompile(`(?m)^VCP code ([0-9a-fA-F]{2}): (.+)$`).FindAllStringSubmatch(string(out), -1) {
+			c, _ := strconv.ParseUint(m[1], 16, 8)
+			vcpinfoMap[byte(c)] = strings.TrimSpace(m[2])
+		}
+	})
+	return vcpinfoMap
 }

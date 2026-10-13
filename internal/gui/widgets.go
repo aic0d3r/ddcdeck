@@ -37,6 +37,14 @@ func title(feature string) string {
 	return strings.ToUpper(feature[:1]) + strings.ReplaceAll(feature[1:], "_", " ")
 }
 
+// subtitles explain a control in one plain line; empty means the label is enough.
+var subtitles = map[string]string{
+	"colortemp": "Warm (5000 K) to cool (9300 K)",
+	"preset":    "The monitor's own picture modes",
+	"kvm":       "Move keyboard and mouse to another computer",
+	"power":     "Off turns the screen off; setting On wakes it",
+}
+
 var valueLabels = map[string]string{
 	"dp": "DisplayPort", "dp1": "DisplayPort 1", "dp2": "DisplayPort 2", "usbc": "USB-C",
 	"hdmi1": "HDMI 1", "hdmi2": "HDMI 2", "vga1": "VGA 1", "vga2": "VGA 2", "dvi1": "DVI 1", "dvi2": "DVI 2",
@@ -116,6 +124,9 @@ func rangeRow(a *App, b *binder, feature string, f model.Feature) *adw.ActionRow
 func onOffRows(a *App, b *binder, feature string, f model.Feature) []gtk.Widgetter {
 	sw := adw.NewSwitchRow()
 	sw.SetTitle(title(feature))
+	if feature == "bluelight" {
+		sw.SetSubtitle("Warmer colors for the evening")
+	}
 	sw.Connect("notify::active", func() {
 		a.set(feature, map[bool]string{true: "on", false: "off"}[sw.Active()])
 	})
@@ -142,6 +153,7 @@ func comboRow(a *App, b *binder, feature string, f model.Feature) *adw.ComboRow 
 	}
 	r := adw.NewComboRow()
 	r.SetTitle(title(feature))
+	r.SetSubtitle(subtitles[feature])
 	r.SetModel(gtk.NewStringList(labels))
 	r.SetSelected(noSelection)
 	r.Connect("notify::selected", func() {
