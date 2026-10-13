@@ -94,8 +94,9 @@ func (s *Service) serveConn(c net.Conn) {
 			}()
 			continue
 		}
-		go func() { // a slow DDC call must not block other requests on this connection
-			res, err := s.Handle(req.Method, req.Params)
+		finish := s.Start(req.Method, req.Params) // in arrival order, so the last set wins
+		go func() {                               // a slow DDC call must not block other requests
+			res, err := finish()
 			resp := Response{ID: req.ID, Result: res}
 			if err != nil {
 				var e *Error
@@ -171,12 +172,21 @@ func Notify(state string) {
 	_, _ = c.Write([]byte(state))
 }
 
-// Client is a socket API client.
+// Client is a socket API client. Calls may run concurrently; events go to the Subscribe handler.
 type Client struct {
-	c   net.Conn
-	sc  *bufio.Scanner
-	id  int
-	enc *json.Encoder
+	c       net.Conn
+	mu      sync.Mutex
+	id      int
+	pending map[int]chan clientResp
+	onEvent func(Event)
+	done    chan struct{}
+}
+
+type clientResp struct {
+	ID     int             `json:"id"`
+	Result json.RawMessage `json:"result"`
+	Error  *Error          `json:"error"`
+	Event  string          `json:"event"`
 }
 
 // Dial connects to the daemon.
@@ -185,53 +195,87 @@ func Dial(path string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	sc := bufio.NewScanner(c)
-	sc.Buffer(make([]byte, 64<<10), 1<<20)
-	return &Client{c: c, sc: sc, enc: json.NewEncoder(c)}, nil
+	cl := &Client{c: c, pending: map[int]chan clientResp{}, done: make(chan struct{})}
+	go cl.readLoop()
+	return cl, nil
 }
+
+func (cl *Client) readLoop() {
+	defer close(cl.done)
+	sc := bufio.NewScanner(cl.c)
+	sc.Buffer(make([]byte, 64<<10), 1<<20)
+	for sc.Scan() {
+		var r clientResp
+		if json.Unmarshal(sc.Bytes(), &r) != nil {
+			continue
+		}
+		cl.mu.Lock()
+		if r.Event != "" {
+			fn := cl.onEvent
+			cl.mu.Unlock()
+			var e Event
+			if fn != nil && json.Unmarshal(sc.Bytes(), &e) == nil {
+				fn(e)
+			}
+			continue
+		}
+		ch := cl.pending[r.ID]
+		delete(cl.pending, r.ID)
+		cl.mu.Unlock()
+		if ch != nil {
+			ch <- r
+		}
+	}
+}
+
+// Done is closed when the connection drops.
+func (cl *Client) Done() <-chan struct{} { return cl.done }
 
 func (cl *Client) Close() error { return cl.c.Close() }
 
-// Call sends one request and decodes the result into out. Not for use after Subscribe.
-func (cl *Client) Call(method string, params, out any) error {
-	cl.id++
+// Call sends one request and decodes the result into out (may be nil).
+func (cl *Client) Call(method string, params, out any) error { return cl.Go(method, params, out)() }
+
+// Go sends the request now (so requests reach the daemon in Go order) and returns a func
+// that waits for the reply.
+func (cl *Client) Go(method string, params, out any) func() error {
 	raw, err := json.Marshal(params)
 	if err != nil {
-		return err
+		return func() error { return err }
 	}
-	if err := cl.enc.Encode(Request{ID: cl.id, Method: method, Params: raw}); err != nil {
-		return err
+	ch := make(chan clientResp, 1)
+	cl.mu.Lock()
+	cl.id++
+	id := cl.id
+	cl.pending[id] = ch
+	b, _ := json.Marshal(Request{ID: id, Method: method, Params: raw})
+	_, err = cl.c.Write(append(b, '\n'))
+	cl.mu.Unlock()
+	if err != nil {
+		return func() error { return err }
 	}
-	for cl.sc.Scan() {
-		var resp struct {
-			ID     int             `json:"id"`
-			Result json.RawMessage `json:"result"`
-			Error  *Error          `json:"error"`
-		}
-		if err := json.Unmarshal(cl.sc.Bytes(), &resp); err != nil || resp.ID != cl.id {
-			continue // events or stale replies
-		}
-		if resp.Error != nil {
-			return resp.Error
+	return func() error { return cl.wait(ch, out) }
+}
+
+func (cl *Client) wait(ch chan clientResp, out any) error {
+	select {
+	case r := <-ch:
+		if r.Error != nil {
+			return r.Error
 		}
 		if out == nil {
 			return nil
 		}
-		return json.Unmarshal(resp.Result, out)
+		return json.Unmarshal(r.Result, out)
+	case <-cl.done:
+		return errors.New("daemon closed the connection")
 	}
-	if err := cl.sc.Err(); err != nil {
-		return err
-	}
-	return errors.New("daemon closed the connection")
 }
 
-// Events reads pushed events after a "subscribe" call.
-func (cl *Client) Events(fn func(Event)) error {
-	for cl.sc.Scan() {
-		var e Event
-		if json.Unmarshal(cl.sc.Bytes(), &e) == nil && e.Event != "" {
-			fn(e)
-		}
-	}
-	return cl.sc.Err()
+// Subscribe routes pushed events to fn (called on the reader goroutine; don't block).
+func (cl *Client) Subscribe(fn func(Event)) error {
+	cl.mu.Lock()
+	cl.onEvent = fn
+	cl.mu.Unlock()
+	return cl.Call("subscribe", nil, nil)
 }

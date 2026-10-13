@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -95,6 +96,9 @@ func (m Model) validate() error {
 		return errors.New("mfg and model are required")
 	}
 	for name, f := range m.Features {
+		if name == "" || slices.Contains(slices.Collect(maps.Keys(f.Values)), "") {
+			return fmt.Errorf("feature %q: names must not be empty", name)
+		}
 		if f.VCP < 0 || f.VCP > 0xff {
 			return fmt.Errorf("feature %s: vcp %#x out of range", name, f.VCP)
 		}

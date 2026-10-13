@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=DDC Deck
+Comment=Monitor brightness, blue light filter, color and input over DDC/CI
+Exec=ddcdeck-gui
+Icon=io.github.aic0d3r.DDCDeck
+Categories=Settings;HardwareSettings;
+Keywords=monitor;display;brightness;contrast;ddc;blue light;input;
+StartupNotify=true

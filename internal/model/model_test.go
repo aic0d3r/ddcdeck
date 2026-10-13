@@ -30,3 +30,10 @@ func TestLoadAndResolvePA279CRV(t *testing.T) {
 		t.Error("Resolve must not mutate Defaults")
 	}
 }
+
+func TestValidateRejectsEmptyNames(t *testing.T) {
+	bad := Model{Mfg: "X", Model: "Y", Features: map[string]Feature{"in": {VCP: 0x60, Type: "enum", Values: map[string]int{"": 1}}}}
+	if bad.validate() == nil {
+		t.Fatal("empty value name accepted")
+	}
+}

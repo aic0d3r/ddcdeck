@@ -69,6 +69,11 @@ type Event struct {
 	State   string `json:"state,omitempty"` // hotplug: "connected" | "disconnected"
 }
 
+type wkey struct {
+	id   string
+	code byte
+}
+
 type cached struct {
 	v  ddc.Value
 	at time.Time
@@ -80,12 +85,14 @@ type Service struct {
 	models []model.Model
 	drmDir string
 
-	mu    sync.Mutex
-	mons  []*Monitor
-	caps  map[string]ddc.Caps            // by monitor ID, survives re-scans
-	cache map[string]map[byte]cached      // by monitor ID
-	buses map[int]*sync.Mutex             // one I2C transaction at a time per bus
-	subs  map[chan Event]struct{}
+	mu      sync.Mutex
+	mons    []*Monitor
+	caps    map[string]ddc.Caps        // by monitor ID, survives re-scans
+	cache   map[string]map[byte]cached // by monitor ID
+	buses   map[int]*sync.Mutex        // one I2C transaction at a time per bus
+	pending map[wkey]int               // latest value waiting to be written
+	writing map[wkey]bool              // a writer goroutine owns this key
+	subs    map[chan Event]struct{}
 }
 
 // New creates a service; call Scan before use.
@@ -94,6 +101,7 @@ func New(be ddc.Backend, models []model.Model) *Service {
 		be: be, models: models, drmDir: "/sys/class/drm",
 		caps: map[string]ddc.Caps{}, cache: map[string]map[byte]cached{},
 		buses: map[int]*sync.Mutex{}, subs: map[chan Event]struct{}{},
+		pending: map[wkey]int{}, writing: map[wkey]bool{},
 	}
 }
 
@@ -255,33 +263,65 @@ func (s *Service) readOne(m *Monitor, code byte) (ddc.Value, error) {
 	return v, nil
 }
 
-// write sets a VCP code: cache + event first (optimistic), then I2C, then one confirming re-read.
-func (s *Service) write(m *Monitor, feature string, code byte, v int) error {
+// enqueue records v as the latest value for a VCP code: cache + event at once (optimistic),
+// in call order. It returns the I2C part. Writes to the same code coalesce (latest wins), so a
+// dragged slider costs a few I2C writes, not one per step; if another writer is already
+// draining this code, the returned func is a no-op. After the last write, one confirming
+// re-read emits a correction if the monitor disagrees.
+func (s *Service) enqueue(m *Monitor, feature string, code byte, v int) func() error {
+	k := wkey{m.ID, code}
 	s.mu.Lock()
 	prevMax := s.cache[m.ID][code].v.Max
+	s.pending[k] = v
+	busy := s.writing[k]
+	s.writing[k] = true
 	s.mu.Unlock()
 	s.store(m, code, ddc.Value{Cur: v, Max: prevMax})
 	if feature != "" {
 		s.emit(Event{Event: "value", Display: m.ID, Feature: feature, Value: &v})
 	}
-	l := s.bus(m.Bus)
-	l.Lock()
-	err := s.be.Set(m.Bus, code, v)
-	l.Unlock()
-	if err != nil {
+	if busy {
+		return func() error { return nil } // the running writer picks up our value
+	}
+	return func() error { return s.drain(m, feature, k, v) }
+}
+
+func (s *Service) drain(m *Monitor, feature string, k wkey, last int) error {
+	code := k.code
+	var first error
+	for i := 0; ; i++ {
 		s.mu.Lock()
-		delete(s.cache[m.ID], code)
+		next, ok := s.pending[k]
+		delete(s.pending, k)
+		if !ok {
+			delete(s.writing, k)
+			s.mu.Unlock()
+			break
+		}
 		s.mu.Unlock()
-		return errf(ErrDDC, "%v", err)
+		l := s.bus(m.Bus)
+		l.Lock()
+		err := s.be.Set(m.Bus, code, next)
+		l.Unlock()
+		last = next
+		if err != nil {
+			slog.Warn("vcp write failed", "display", m.ID, "code", fmt.Sprintf("%02X", code), "value", next, "err", err)
+			s.mu.Lock()
+			delete(s.cache[m.ID], code)
+			s.mu.Unlock()
+			if i == 0 {
+				first = errf(ErrDDC, "%v", err)
+			}
+		}
 	}
 	go func() {
 		time.Sleep(confirmDelay)
 		vals, err := s.read(m, true, code)
-		if got, ok := vals[code]; err == nil && ok && got.Cur != v && feature != "" {
+		if got, ok := vals[code]; err == nil && ok && got.Cur != last && feature != "" {
 			s.emit(Event{Event: "value", Display: m.ID, Feature: feature, Value: &got.Cur})
 		}
 	}()
-	return nil
+	return first
 }
 
 // FeatureValue is the result of get/set.
@@ -293,7 +333,8 @@ type FeatureValue struct {
 	On      *bool  `json:"on,omitempty"`   // range with an off value
 }
 
-func present(name string, f model.Feature, v ddc.Value) FeatureValue {
+// Present turns a raw value into a FeatureValue (enum name, on/off).
+func Present(name string, f model.Feature, v ddc.Value) FeatureValue {
 	fv := FeatureValue{Feature: name, Value: v.Cur, Max: v.Max}
 	if f.Max > 0 {
 		fv.Max = f.Max
@@ -395,6 +436,30 @@ type StatusResult struct {
 
 // Handle dispatches one API method. "subscribe" is handled by the socket server.
 func (s *Service) Handle(method string, raw json.RawMessage) (any, error) {
+	return s.Start(method, raw)()
+}
+
+// Start runs the order-sensitive part of a request now (for writes: queueing the value) and
+// returns the rest, which may block on I2C. Call Start in arrival order, finish concurrently.
+func (s *Service) Start(method string, raw json.RawMessage) func() (any, error) {
+	if method != "set" && method != "vcp.set" {
+		return func() (any, error) { return s.handle(method, raw, nil) }
+	}
+	var wait func() error
+	res, err := s.handle(method, raw, &wait)
+	return func() (any, error) {
+		if err == nil && wait != nil {
+			err = wait()
+		}
+		if err != nil {
+			return nil, err
+		}
+		return res, nil
+	}
+}
+
+// handle does the work; set/vcp.set store their I2C step in *wait instead of running it.
+func (s *Service) handle(method string, raw json.RawMessage, wait *func() error) (any, error) {
 	var p Params
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &p); err != nil {
@@ -425,7 +490,7 @@ func (s *Service) Handle(method string, raw json.RawMessage) (any, error) {
 		res := StatusResult{Display: m.ID, Values: []FeatureValue{}}
 		for _, name := range sortedKeys(m.Features) {
 			if v, ok := vals[byte(m.Features[name].VCP)]; ok {
-				res.Values = append(res.Values, present(name, m.Features[name], v))
+				res.Values = append(res.Values, Present(name, m.Features[name], v))
 			}
 		}
 		return res, nil
@@ -438,7 +503,7 @@ func (s *Service) Handle(method string, raw json.RawMessage) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		return present(p.Feature, f, v), nil
+		return Present(p.Feature, f, v), nil
 	case "set":
 		f, err := s.feature(m, p.Feature)
 		if err != nil {
@@ -448,10 +513,8 @@ func (s *Service) Handle(method string, raw json.RawMessage) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := s.write(m, p.Feature, byte(f.VCP), v); err != nil {
-			return nil, err
-		}
-		return present(p.Feature, f, ddc.Value{Cur: v, Max: f.Max}), nil
+		*wait = s.enqueue(m, p.Feature, byte(f.VCP), v)
+		return Present(p.Feature, f, ddc.Value{Cur: v, Max: f.Max}), nil
 	case "vcp.get", "vcp.set":
 		code, err := strconv.ParseUint(strings.TrimPrefix(strings.ToLower(p.Code), "0x"), 16, 8)
 		if err != nil {
@@ -472,9 +535,7 @@ func (s *Service) Handle(method string, raw json.RawMessage) (any, error) {
 		if err != nil || n < 0 || n > 0xffff {
 			return nil, errf(ErrUsage, "value must be 0-65535")
 		}
-		if err := s.write(m, "", byte(code), int(n)); err != nil {
-			return nil, err
-		}
+		*wait = s.enqueue(m, "", byte(code), int(n))
 		return ddc.Value{Cur: int(n)}, nil
 	}
 	return nil, errf(ErrUsage, "unknown method %q", method)

@@ -3,8 +3,10 @@ package deck
 import (
 	"encoding/json"
 	"errors"
+	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/aic0d3r/ddcdeck/internal/ddc"
 	"github.com/aic0d3r/ddcdeck/internal/model"
@@ -14,6 +16,9 @@ type fake struct {
 	mu   sync.Mutex
 	vals map[byte]ddc.Value
 	gets int
+	sets int
+	gate chan struct{} // if set, each Set waits for a receive
+	slow bool          // Set takes 5 ms, like a real (faster) bus
 }
 
 func (f *fake) Detect() ([]ddc.Display, error) {
@@ -35,7 +40,14 @@ func (f *fake) Get(_ int, codes ...byte) (map[byte]ddc.Value, error) {
 	return out, nil
 }
 func (f *fake) Set(_ int, c byte, v int) error {
+	if f.gate != nil {
+		<-f.gate
+	}
+	if f.slow {
+		time.Sleep(5 * time.Millisecond)
+	}
 	f.mu.Lock()
+	f.sets++
 	defer f.mu.Unlock()
 	if c == 0x99 {
 		return errors.New("nak")
@@ -130,5 +142,36 @@ func TestCacheAndEvents(t *testing.T) {
 	call(t, s, "set", Params{Feature: "brightness", Value: json.RawMessage("55")})
 	if e := <-ch; e.Event != "value" || e.Feature != "brightness" || *e.Value != 55 {
 		t.Fatalf("event: %+v", e)
+	}
+}
+
+func TestWritesCoalesce(t *testing.T) {
+	s, f := newTest(t)
+	f.gate = make(chan struct{})
+	first := make(chan error)
+	go func() {
+		_, err := call(t, s, "set", Params{Feature: "brightness", Value: json.RawMessage("1")})
+		first <- err
+	}()
+	for { // wait until the first write is blocked inside Set
+		s.mu.Lock()
+		busy := len(s.writing) > 0 && len(s.pending) == 0
+		s.mu.Unlock()
+		if busy {
+			break
+		}
+	}
+	for v := 2; v <= 20; v++ { // a slider drag while the bus is busy
+		if _, err := call(t, s, "set", Params{Feature: "brightness", Value: json.RawMessage(strconv.Itoa(v))}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.gate <- struct{}{}
+	f.gate <- struct{}{}
+	if err := <-first; err != nil {
+		t.Fatal(err)
+	}
+	if f.sets != 2 || f.vals[0x10].Cur != 20 {
+		t.Fatalf("want 2 writes ending at 20, got %d writes, value %d", f.sets, f.vals[0x10].Cur)
 	}
 }

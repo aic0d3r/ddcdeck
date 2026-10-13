@@ -5,8 +5,8 @@ filter, color presets, input switching, profiles and automation (sunset, dock/un
 app, hotkeys). Works with any DDC/CI monitor; vendor-specific features come from community
 model files.
 
-Status: milestone 1 (daemon + CLI) works. Profiles, rules, GUI and the wizard come next; see
-[docs/DESIGN.md](docs/DESIGN.md).
+Status: daemon, CLI, GUI and tray work. Profiles, rules and the discovery wizard come next;
+see [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Install
 
@@ -18,6 +18,20 @@ make install-service   # optional: systemd --user daemon (fast cached reads, eve
 ```
 
 Without the daemon the CLI talks to the monitor directly (slower, ~1-3 s per command).
+
+### GUI and tray
+
+Needs GTK 4, libadwaita ≥ 1.4 and gtk4-layer-shell.
+
+```sh
+make install-gui       # ddcdeck-gui, app menu entry, starts hidden in the tray at login
+```
+
+- Left-click the tray icon: quick panel (brightness, blue light, color, input) next to the icon.
+- Scroll on the tray icon: brightness ±5. Right-click: Open / Quit.
+- Closing the window keeps DDC Deck in the tray.
+- The GUI starts the daemon if needed (`systemctl --user start ddcdeckd`, else it runs
+  `ddcdeckd` directly). Set `DDCDECK_DEBUG=1` for logs.
 
 ## Usage
 

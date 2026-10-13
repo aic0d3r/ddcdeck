@@ -197,7 +197,12 @@ Automates the manual method used to find blue light = `0xE6`:
    for milestone 2 rules) and `model export-mccs`. Extra API method: `monitor` (resolved
    selector + features).*
 2. **Automation:** profiles, time/sunset + hotplug rules, shortcuts portal.
-3. **GUI:** window + tray on the socket API.
+3. **GUI:** window + tray on the socket API. *Done (built before milestone 2). Deviations:
+   the tray "popover" is a gtk4-layer-shell quick panel placed at the SNI click position
+   (GTK4 popovers can't anchor to a tray icon on Wayland); scrolling the tray icon changes
+   brightness; Profiles/Automation pages and "Pause automation" arrive with milestone 2.
+   Writes coalesce per VCP code in the daemon (latest wins, in arrival order), so slider
+   drags cost a few I2C writes.*
 4. **Community:** discovery wizard, KWin app watcher, AUR package, docs site.
 
 ## 8. Known codes — ASUS PA279CRV (product 10209)
