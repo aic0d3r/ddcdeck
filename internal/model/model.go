@@ -74,6 +74,19 @@ func Load() ([]Model, error) {
 				err = m.validate()
 			}
 			if err == nil {
+				// Same monitor again (user file over bundled): merge, the later file wins per
+				// feature, so a partial user file doesn't hide the bundled features.
+				if i := slices.IndexFunc(models, func(o Model) bool {
+					return strings.EqualFold(o.Mfg, m.Mfg) && strings.EqualFold(o.Model, m.Model) && o.Product == m.Product
+				}); i >= 0 {
+					merged := maps.Clone(models[i].Features)
+					if merged == nil {
+						merged = map[string]Feature{}
+					}
+					maps.Copy(merged, m.Features)
+					models[i].Features = merged
+					return
+				}
 				models = append([]Model{m}, models...) // later (user) files take precedence in Match
 				return
 			}

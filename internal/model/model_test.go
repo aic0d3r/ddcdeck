@@ -1,6 +1,8 @@
 package model
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -131,5 +133,28 @@ func TestResolveDropsUnverifiedFeatureNotInCaps(t *testing.T) {
 	}
 	if _, ok := Resolve(m, nil)["guess"]; !ok {
 		t.Error("unknown caps (nil) keeps everything, as before")
+	}
+}
+
+func TestUserModelMergesOverBundled(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", dir)
+	if err := os.MkdirAll(filepath.Join(dir, "ddcdeck", "models"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	user := "mfg=\"AUS\"\nmodel=\"PA279CRV\"\nproduct=10209\n[feature.preset]\nvcp=0xE3\ntype=\"range\"\nverified=true\n"
+	if err := os.WriteFile(filepath.Join(dir, "ddcdeck", "models", "u.toml"), []byte(user), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	models, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := Match(models, "AUS", "PA279CRV", 10209)
+	if m.Features["preset"].VCP != 0xE3 {
+		t.Error("user feature must win")
+	}
+	if _, ok := m.Features["bluelight"]; !ok {
+		t.Error("bundled bluelight must survive a partial user file")
 	}
 }
