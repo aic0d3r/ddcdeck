@@ -47,6 +47,12 @@ func runDiscover(*cobra.Command, []string) error {
 		return &deck.Error{Code: deck.ErrDDC, Message: err.Error()}
 	}
 	fmt.Printf("Watching %d VCP codes on %s (%s).\n", len(sess.Codes()), m.ID, m.Connector)
+	if hs := model.VendorHints(m.Mfg); len(hs) > 0 {
+		fmt.Printf("Already known for %s monitors (candidates, vary by model — check these before submitting):\n", m.Mfg)
+		for _, h := range hs {
+			fmt.Println("  " + h.String())
+		}
+	}
 	for {
 		name := discoverFeature
 		if name == "" {

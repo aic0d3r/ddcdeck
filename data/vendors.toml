@@ -1,0 +1,478 @@
+# Known vendor-specific VCP codes, gathered from public sources. These are CANDIDATES per EDID
+# manufacturer, not per-model truth: codes and values vary between models of one vendor, so
+# nothing here is applied automatically. `ddcdeck discover` shows them first so you can check
+# a known code instead of re-discovering it, and so contributors don't submit duplicates.
+# Never setvcp unknown codes blindly (an LG 38WN95C was bricked that way: ddcutil #419).
+# src: dcc = ddccontrol-db (GPL data, facts only), gh = GitHub issue/gist, forum, wiki.
+
+# --- ASUS (AUS, ACI) -------------------------------------------------------------------
+[[hint]]
+mfg = "AUS"
+vcp = 0xE6
+name = "bluelight"
+values = { level0 = 0, level1 = 1, level2 = 2, level3 = 3, level4 = 4 }
+note = "PA279CRV exposes 0-20 as a range (see data/models); VG27AQ uses 0xF0 instead"
+src = "dcc VP28U/VG328QA1A/VG34VQ3B + this repo"
+
+[[hint]]
+mfg = "AUS"
+vcp = 0xF0
+name = "bluelight"
+values = { level0 = 0, level1 = 1, level2 = 2, level3 = 3, level4 = 4 }
+note = "TUF VG27AQ only"
+src = "dcc"
+
+[[hint]]
+mfg = "AUS"
+vcp = 0xDC
+name = "gamevisual"
+values = { cinema = 0x03, scenery = 0x0b, srgb = 0x0d, moba = 0x14, racing = 0x11, rts_rpg = 0x12, fps = 0x13 }
+note = "picture presets; MG28U (ACI) adds user = 0x0e"
+src = "dcc"
+
+[[hint]]
+mfg = "AUS"
+vcp = 0xE5
+name = "shadowboost"
+values = { off = 0, level1 = 1, level2 = 2, level3 = 3 }
+note = "VG27AQ uses 0xEF"
+src = "dcc"
+
+[[hint]]
+mfg = "AUS"
+vcp = 0xE3
+name = "crosshair"
+values = { off = 0, style1 = 0x07, style2 = 0x08, style3 = 0x09, style4 = 0x0a, style5 = 0x0b, style6 = 0x0c }
+note = "VG34VQ3B; on VP28U 0xE3 is VividPixel (0-100)"
+src = "dcc"
+
+[[hint]]
+mfg = "AUS"
+vcp = 0xEA
+name = "fps_counter"
+values = { off = 0, on = 1, graph = 2 }
+note = "TUF; on VP28U 0xEA is the power LED"
+src = "dcc"
+
+[[hint]]
+mfg = "AUS"
+vcp = 0xE2
+name = "tracefree"
+values = { v0 = 0, v20 = 0x14, v40 = 0x28, v60 = 0x3c, v80 = 0x50, v100 = 0x64 }
+note = "overdrive"
+src = "dcc"
+
+[[hint]]
+mfg = "AUS"
+vcp = 0xE1
+name = "smartview_or_eco"
+values = { off = 0, on = 1 }
+note = "0xE1 is Smart View on VP28U but ECO mode on VG328QA1A; 0xE7 is ECO on VP28U/VG27AQ"
+src = "dcc"
+
+[[hint]]
+mfg = "AUS"
+vcp = 0xE9
+name = "keylock"
+values = { off = 0, on = 1 }
+note = "VP28U; on TUF VG27AQ 0xE9 is OSD enable/disable (0=enable, 1=disable)"
+src = "dcc"
+
+[[hint]]
+mfg = "AUS"
+vcp = 0xF3
+name = "kvm"
+values = { dp_hdmi = 2, usbc = 3 }
+note = "ROG PG32UCDM: value changes with the KVM state but writing does NOT reroute USB (read-only); unconfirmed on other models"
+src = "ROG forum feature request, Dec 2025"
+
+# --- Dell (DEL; also U27*/U32*/U49* ids on newer models) -------------------------------
+[[hint]]
+mfg = "DEL"
+vcp = 0xDC
+name = "preset_game"
+values = { standard = 0, multimedia = 2, movie = 3, game = 5 }
+note = "standard MCCS display mode (some Dell panels list only 0/3/5)"
+src = "dell community, dcc"
+
+[[hint]]
+mfg = "DEL"
+vcp = 0xF0
+name = "preset_profile"
+values = { off = 0, comfortview = 0x0c, game2 = 0x0d, game3 = 0x0e, fps = 0x0f, rts = 0x10, rpg = 0x11, sport = 0x13 }
+note = "Gaming (S2721D*) and ComfortView; on newer U-series 0xF0 = 8 is Paper preset"
+src = "dell community (ComfortView via F0=0x0C), dcc"
+
+[[hint]]
+mfg = "DEL"
+vcp = 0xE8
+name = "input_sub"
+values = { dp = 0x0f, hdmi1 = 0x11, hdmi2 = 0x12, usbc = 0x1b }
+note = "PIP/PBP second window source; S3422DWG also takes 0x21 for DP; usbc = 0x19 on U4021QW/U3219Q"
+src = "gh ddcutil #268, dcc"
+
+[[hint]]
+mfg = "DEL"
+vcp = 0xE9
+name = "pip_pbp"
+values = { off = 0, pip_large = 0x22, pip_small = 0x21, pbp = 0x24 }
+note = "S3422DWG also reports 0x23; PiP corner is not readable back (stays 0x21)"
+src = "gh ddcutil #268, gh gist lainosantos U2723QE, dcc"
+
+[[hint]]
+mfg = "DEL"
+vcp = 0xE7
+name = "kvm_switch"
+note = "built-in USB/KVM routing, NOT a simple enum: a model-specific bitfield (e.g. U2723QE/P3223QE 0x2A/0x2E/0x3A/0x3E; U4919DW 0x00/0x40/0x80; U4021QW 0xFF02..). Table feature, capture with `discover`. 0xFF00 on E7 switches USB in PIP/PBP on U2723QE/U3824DW"
+src = "dcc, gh gist lainosantos"
+
+[[hint]]
+mfg = "DEL"
+vcp = 0xE5
+name = "pip_video_swap"
+values = { swap = 0xf001 }
+note = "U2723QE/U3824DW: swap video sources in PIP/PBP"
+src = "gh gist lainosantos"
+
+[[hint]]
+mfg = "DEL"
+vcp = 0xE0
+name = "force_energy_saving"
+values = { off = 0, on = 1 }
+note = "hidden on S2721D/U2718/U2723QE: locks brightness to minimum"
+src = "dcc"
+
+[[hint]]
+mfg = "DEL"
+vcp = 0xE2
+name = "preset_raw"
+note = "read-only for ddcutil (setvcp fails verification): P2217H returns 0x01/0x1d per preset; use 0xDC/0xF0 to switch"
+src = "dell community"
+
+[[hint]]
+mfg = "DEL"
+vcp = 0xE4
+name = "uniformity"
+values = { off = 0, calibrated = 1 }
+note = "P2415Q/U3415W"
+src = "dcc"
+
+# --- LG (GSM) --------------------------------------------------------------------------
+[[hint]]
+mfg = "GSM"
+vcp = 0xF5
+name = "aspect_ratio"
+values = { v1to1 = 0, wide = 1, original = 2 }
+src = "dcc"
+
+[[hint]]
+mfg = "GSM"
+vcp = 0xF7
+name = "response_time"
+values = { off = 0, high = 1, middle = 2, low = 3 }
+note = "UltraGear 27GL850 and similar"
+src = "dcc"
+
+[[hint]]
+mfg = "GSM"
+vcp = 0xF8
+name = "freesync"
+values = { off = 0, on = 1 }
+src = "dcc"
+
+[[hint]]
+mfg = "GSM"
+vcp = 0xF6
+name = "smart_energy_saving"
+values = { off = 0, low = 1, high = 2 }
+src = "dcc"
+
+[[hint]]
+mfg = "GSM"
+vcp = 0xF9
+name = "black_stabilizer"
+note = "range 0-20 in steps of 2 (UltraGear 27GL850)"
+src = "dcc"
+
+[[hint]]
+mfg = "GSM"
+vcp = 0xEB
+name = "osd_lock"
+values = { off = 0, on = 1 }
+src = "dcc"
+
+[[hint]]
+mfg = "GSM"
+vcp = 0xFE
+name = "gamma_mode"
+values = { mode1 = 0x02, mode2 = 0x03, mode3 = 0x04, mode4 = 0x10 }
+src = "dcc"
+
+[[hint]]
+mfg = "GSM"
+vcp = 0xF4
+name = "input_sidechannel"
+note = "NOT usable via normal setvcp. Recent LGs (27UN850/27UP850/32GP850/34WN80C/45GX950A ..) switch input only over DDC address 0x50 (ddcutil --i2c-source-addr=x50 --noverify): x90 HDMI1, x91 HDMI2, xD0 DP1, xD1 USB-C/DP2; PBP via 0xD7. Needs a backend change, don't add as a model feature"
+src = "ddcutil wiki: Switching-input-source-on-LG-monitors"
+
+# --- Samsung (SAM) ---------------------------------------------------------------------
+[[hint]]
+mfg = "SAM"
+vcp = 0xDC
+name = "magic_bright"
+values = { text = 1, internet = 2, entertain = 3 }
+note = "values vary per model"
+src = "dcc"
+
+[[hint]]
+mfg = "SAM"
+vcp = 0xF3
+name = "response_time"
+values = { standard = 0, faster = 1, fastest = 2 }
+src = "dcc"
+
+[[hint]]
+mfg = "SAM"
+vcp = 0xF2
+name = "gamma"
+note = "0..8 maps -0.2..+0.6"
+src = "dcc"
+
+[[hint]]
+mfg = "SAM"
+vcp = 0xF7
+name = "eco_mode"
+values = { off = 0, low = 1, middle = 2, high = 3 }
+src = "dcc"
+
+[[hint]]
+mfg = "SAM"
+vcp = 0xF8
+name = "core_lighting"
+values = { off = 0, manual = 1 }
+note = "Odyssey Neo G9 (0xF9 effect, 0xFA colour)"
+src = "dcc"
+
+[[hint]]
+mfg = "SAM"
+vcp = 0x60
+name = "input_odd_values"
+values = { hdmi1 = 0x06, dp1 = 0x03, dp2 = 0x09 }
+note = "Odyssey G7 uses non-MCCS 0x60 values; DP1/DP2 won't toggle directly"
+src = "gh ddcutil #388"
+
+# --- Acer (ACR) ------------------------------------------------------------------------
+[[hint]]
+mfg = "ACR"
+vcp = 0xE2
+name = "picture_mode"
+values = { user = 0, standard = 1, eco = 2, graphics = 3, movie = 4, srgb = 9, reading = 12, darkroom = 13 }
+src = "dcc (ED273UR, VG270U, KA242Y, XB273U)"
+
+[[hint]]
+mfg = "ACR"
+vcp = 0xE5
+name = "black_boost"
+src = "dcc"
+
+# --- BenQ (BNQ) ------------------------------------------------------------------------
+[[hint]]
+mfg = "BNQ"
+vcp = 0xDC
+name = "picture_mode"
+values = { standard = 0x00, movie = 0x03 }
+note = "XL2411 etc. use raw hex ids 0x0b/0x0c/0x0e/0x15..0x1a; RL2455HM uses 0..9"
+src = "dcc"
+
+[[hint]]
+mfg = "BNQ"
+vcp = 0xE2
+name = "bright_intelligence"
+values = { off = 0, on = 1 }
+note = "0xE3 = light meter"
+src = "dcc"
+
+# --- AOC -------------------------------------------------------------------------------
+[[hint]]
+mfg = "AOC"
+vcp = 0xDC
+name = "game_mode"
+values = { off = 0, fps = 11, rts = 12, racing = 13, sport = 14, game2 = 15, game3 = 16 }
+note = "24G2 family"
+src = "dcc"
+
+[[hint]]
+mfg = "AOC"
+vcp = 0xF8
+name = "freesync"
+values = { off = 0, on = 1 }
+src = "dcc"
+
+# --- Lenovo (LEN) ----------------------------------------------------------------------
+[[hint]]
+mfg = "LEN"
+vcp = 0xDC
+name = "scenario"
+values = { native = 0, image_creation = 1, digital_cinema = 3, video_creation = 5, low_blue_light = 6 }
+note = "L32p-30"
+src = "dcc"
+
+[[hint]]
+mfg = "LEN"
+vcp = 0xEF
+name = "hdr"
+values = { off = 0, hdr = 6, game = 7, movie = 8, photo = 9 }
+src = "dcc"
+
+[[hint]]
+mfg = "LEN"
+vcp = 0xE0
+name = "overdrive"
+values = { off = 0, level1 = 3, level2 = 4, level3 = 5, level4 = 6 }
+src = "dcc"
+
+# --- Dell, extra (reddit r/Monitors "Surviving a KVM switch ... Dell U3425WE") ------------
+[[hint]]
+mfg = "DEL"
+vcp = 0x66
+name = "ambient_light_sensor"
+values = { on = 0, off = 1 }
+note = "inverted: 1 = sensor disabled. With 0xE0 (smart auto-brightness) on, both hijack the backlight so brightness only dims; U3425WE needs --noverify on HDMI"
+src = "reddit r/Monitors 1suui71"
+
+# --- ASUS ROG XG49WCR / PG39WCDM KVM ---------------------------------------------------
+[[hint]]
+mfg = "AUS"
+vcp = 0x60
+name = "input_usbc_hdmi"
+values = { hdmi = 17, usbc = 19 }
+note = "XG49WCR: input works, but no VCP code found for the KVM USB link (all codes identical across KVM states); PG39WCDM script reportedly used 0xF3"
+src = "reddit r/ASUSROG 1f6wqmu"
+
+# --- KTC (assumed EDID id KTC; verify with `ddcutil detect`) ---------------------------
+# Extracted from KTC's own Monitor Control Center app (app.asar JS). Three firmware families
+# (C, L, D/U) share most codes. Many appear in capabilities only as generic "manufacturer specific".
+[[hint]]
+mfg = "KTC"
+vcp = 0xE0
+name = "overdrive"
+note = "0xBF = overdrive user level"
+src = "reddit r/Monitors 1rt19go"
+
+[[hint]]
+mfg = "KTC"
+vcp = 0xE1
+name = "mprt"
+src = "reddit r/Monitors 1rt19go"
+
+[[hint]]
+mfg = "KTC"
+vcp = 0xE2
+name = "low_input_delay"
+src = "reddit r/Monitors 1rt19go"
+
+[[hint]]
+mfg = "KTC"
+vcp = 0xE3
+name = "overclock"
+note = "D/U family: 0xE3 is Night Vision instead"
+src = "reddit r/Monitors 1rt19go"
+
+[[hint]]
+mfg = "KTC"
+vcp = 0xE4
+name = "fps_display"
+src = "reddit r/Monitors 1rt19go"
+
+[[hint]]
+mfg = "KTC"
+vcp = 0xE5
+name = "dual_mode"
+note = "D/U family only (toggling needs delays between writes)"
+src = "reddit r/Monitors 1rt19go"
+
+[[hint]]
+mfg = "KTC"
+vcp = 0xE8
+name = "auto_brightness"
+note = "D/U family only"
+src = "reddit r/Monitors 1rt19go"
+
+[[hint]]
+mfg = "KTC"
+vcp = 0xE9
+name = "hdr"
+note = "also listed as Resolution Notice"
+src = "reddit r/Monitors 1rt19go"
+
+[[hint]]
+mfg = "KTC"
+vcp = 0xEA
+name = "indicator_light"
+src = "reddit r/Monitors 1rt19go"
+
+[[hint]]
+mfg = "KTC"
+vcp = 0xD9
+name = "kvm"
+note = "USB upstream data is 0xE7"
+src = "reddit r/Monitors 1rt19go"
+
+[[hint]]
+mfg = "KTC"
+vcp = 0xCF
+name = "adaptive_sync"
+src = "reddit r/Monitors 1rt19go"
+
+[[hint]]
+mfg = "KTC"
+vcp = 0xF3
+name = "dcr"
+note = "0xF4 = local dimming, 0x2E = black equalizer"
+src = "reddit r/Monitors 1rt19go"
+
+[[hint]]
+mfg = "KTC"
+vcp = 0xFB
+name = "blue_light_filter"
+note = "0xBC red / 0xDE green light filter"
+src = "reddit r/Monitors 1rt19go"
+
+[[hint]]
+mfg = "KTC"
+vcp = 0xF1
+name = "color_space"
+note = "0xF2 color range, 0xFD color domain, 0x72 gamma"
+src = "reddit r/Monitors 1rt19go"
+
+[[hint]]
+mfg = "KTC"
+vcp = 0xD8
+name = "crosshair"
+note = "colour R 0xD7, G 0x3D, B 0xD5; position H 0xD4, V 0xD3"
+src = "reddit r/Monitors 1rt19go"
+
+[[hint]]
+mfg = "KTC"
+vcp = 0xD0
+name = "rgb_lighting"
+note = "effect 0xD0, colour 0xD1, brightness 0xD2"
+src = "reddit r/Monitors 1rt19go"
+
+[[hint]]
+mfg = "KTC"
+vcp = 0xDB
+name = "image_mode"
+note = "0xDC is display application; 0xEF multi-window mode, 0xEE position, 0xCD size"
+src = "reddit r/Monitors 1rt19go"
+
+[[hint]]
+mfg = "KTC"
+vcp = 0xD5
+name = "sound_preset"
+note = "equaliser bands 0xC0-0xC8; 0xEB audio source"
+src = "reddit r/Monitors 1rt19go"
+
+# --- LG sidechannel confirmation -------------------------------------------------------
+# reddit r/ultrawidemasterrace 1uxcgfs / 1tciqfi: 45GX950A needs the alt DDC address; on Windows
+# `writeValueToDisplay.exe 1 0xD0 0xF4 0x50` (nvapi) or BetterDisplay --ddcAlt. Same as GSM 0xF4 note.

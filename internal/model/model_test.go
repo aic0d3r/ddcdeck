@@ -91,3 +91,18 @@ func TestSaveUserModelMergeAndMCCS(t *testing.T) {
 		t.Fatal("merge lost kvm")
 	}
 }
+
+func TestVendorHints(t *testing.T) {
+	hs := VendorHints("aus")
+	if len(hs) == 0 {
+		t.Fatal("no ASUS hints: vendors.toml missing or invalid")
+	}
+	for _, h := range hs {
+		if h.VCP < 0xB0 && h.VCP != 0x60 || h.VCP > 0xff || h.Name == "" {
+			t.Errorf("bad hint %+v", h)
+		}
+	}
+	if len(VendorHints("DEL")) == 0 || len(VendorHints("GSM")) == 0 || len(VendorHints("ZZZ")) != 0 {
+		t.Error("vendor lookup wrong")
+	}
+}

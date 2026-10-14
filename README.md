@@ -135,6 +135,10 @@ ddcdeck model export-mccs         # regenerate ~/.local/share/ddcutil/*.mccs for
 # or click "Discover…" in the GUI's Settings page — same flow, saves both files
 ```
 
+`discover` first lists the vendor codes already known for your monitor's brand (`data/vendors.toml`,
+gathered from ddccontrol-db, ddcutil issues and forums). They're candidates, not applied automatically —
+codes and values vary by model — so check them before adding a duplicate.
+
 The result lands in `~/.local/share/ddcdeck/models/` immediately, and submitting it is one
 click — the wizard's **Submit to community database** button (or `ddcdeck model submit`)
 opens a prefilled GitHub issue containing the whole model file; you review it and press
