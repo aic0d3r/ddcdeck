@@ -365,8 +365,7 @@ func (a *App) onEvent(e deck.Event) {
 			a.autoSwitch.SetActive(e.State == "running")
 		}
 		if a.autoToggle != nil {
-			a.autoToggle.SetActive(e.State == "running")
-			a.autoToggle.SetTooltipText(map[bool]string{true: "Automation running — click to pause", false: "Automation paused — click to resume"}[e.State == "running"])
+			syncAutoToggle(a.autoToggle, e.State == "running")
 		}
 		if a.updateTrayPause != nil {
 			a.updateTrayPause(e.State == "running")
@@ -450,6 +449,9 @@ func (a *App) bindShortcuts(scs []ShortcutInfo) {
 		idle(func() {
 			if err != nil {
 				a.shortcutsErr = err.Error()
+				if strings.Contains(err.Error(), "app id") { // launched from a terminal: no .desktop id
+					a.shortcutsErr = "Start DDC Deck from the app menu to enable them"
+				}
 				slog.Warn("global shortcuts not bound", "err", err)
 			} else {
 				a.shortcutsErr = ""
@@ -465,6 +467,14 @@ func (a *App) runAction(action string) {
 			a.toast(err.Error())
 		}
 	})
+}
+
+// syncAutoToggle keeps the header button honest: paused reads at a glance (pause glyph,
+// released), running is the quiet state; the tooltip spells both out.
+func syncAutoToggle(t *gtk.ToggleButton, running bool) {
+	t.SetActive(running)
+	t.SetIconName(map[bool]string{true: "alarm-symbolic", false: "media-playback-pause-symbolic"}[running])
+	t.SetTooltipText(map[bool]string{true: "Automation running — click to pause", false: "Automation paused — click to resume"}[running])
 }
 
 // updateBlueSub lets the filter row speak with the schedule's voice when one is set:

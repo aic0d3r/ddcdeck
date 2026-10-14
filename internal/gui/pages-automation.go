@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
@@ -294,6 +295,9 @@ func (a *App) refreshAutomation() {
 		if a.autoSwitch != nil {
 			a.autoSwitch.SetActive(res.Auto)
 		}
+		if a.autoToggle != nil {
+			syncAutoToggle(a.autoToggle, res.Auto)
+		}
 		a.updateTrayPause(res.Auto)
 		if a.placeRow != nil {
 			now := fmt.Sprintf("%.2f, %.2f", res.Location.Lat, res.Location.Lon)
@@ -342,7 +346,7 @@ func (a *App) refreshAutomation() {
 		clearGroup(a.shortcutsGroup, &a.shortcutRows)
 		if a.shortcutsGroup != nil {
 			if a.shortcutsErr != "" {
-				a.addShortcutRow(placeholderRow("Shortcuts unavailable", a.shortcutsErr))
+				a.addShortcutRow(placeholderRow("Global shortcuts unavailable", a.shortcutsErr))
 			}
 			for _, s := range res.Shortcuts {
 				r := adw.NewActionRow()
@@ -486,6 +490,7 @@ func (w *window) addRuleDialog() {
 		setA11yLabel(time, "Time of day")
 		timeRow := adw.NewActionRow()
 		timeRow.SetTitle("Time")
+		timeRow.SetSubtitle("24-hour clock, like 21:30")
 		timeRow.AddSuffix(time)
 		timeRow.SetVisible(false) // only for "Every day at"
 
@@ -496,14 +501,30 @@ func (w *window) addRuleDialog() {
 		profRow.AddSuffix(prof)
 		profRow.SetActivatableWidget(prof)
 
+		valid := func() bool { // guard Add before the server has to say no
+			if triggers[trig.Selected()].when != "time" {
+				return true
+			}
+			h, m, ok := strings.Cut(strings.TrimSpace(time.Text()), ":")
+			if !ok {
+				return false
+			}
+			hh, err1 := strconv.Atoi(h)
+			mm, err2 := strconv.Atoi(m)
+			return err1 == nil && err2 == nil && hh < 24 && mm < 60
+		}
+		gate := func() { dlg.SetResponseEnabled("add", valid()) }
+		time.Connect("changed", gate)
 		trig.Connect("notify::selected", func() {
 			timeRow.SetVisible(triggers[trig.Selected()].when == "time")
+			gate()
 		})
 
 		box.Append(trigRow)
 		box.Append(timeRow)
 		box.Append(profRow)
 		dlg.SetExtraChild(box)
+		gate()
 		dlg.ConnectResponse(func(answer string) {
 			if answer != "add" {
 				return

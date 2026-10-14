@@ -263,6 +263,15 @@ Automates the manual method used to find blue light = `0xE6`:
 - **Logs without systemd** — the GUI-spawned daemon writes `~/.cache/ddcdeck/daemon.log`
   (`DDCDECK_LOG`), which `ddcdeck daemon logs` prefers over the journal.
 
+**Skill audit round (2026-10, impeccable polish + renders).** The rule dialog gates Add
+until the time parses (client mirrors server grammar); Diagnostics gained a summary line
+("All 7 checks passed"); the header automation button shows a pause glyph when paused
+(visible without hover; initial sync must set syncing or the SetActive reads as a user
+click — it toasted into a half-built window and panicked); raw D-Bus errors replaced by
+"Start DDC Deck from the app menu to enable them"; DDCDECK_PAGE opens a page at start
+(screenshot/testing affordance). The render audit also caught automation left paused from
+an earlier test — enabled again.
+
 **Eye care UX round (2026-10).** The filter row speaks with the schedule's voice
 (updateBlueSub: "Off — schedule turns it on at sunset"); Set arms only when the controls
 diverge from saved state (it rewrites rules.toml — an idle armed button is a trap); levels

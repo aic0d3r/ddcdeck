@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"os"
 	"os/exec"
 	"regexp"
 	"slices"
@@ -106,6 +107,9 @@ func newWindow(a *App) *window {
 		}
 	})
 	a.autoToggle = autoBtn
+	a.syncing = true // initial state must not read as a user click (setAuto toasts)
+	syncAutoToggle(autoBtn, a.rules == nil || a.rules.Auto)
+	a.syncing = false
 	hb.PackEnd(autoBtn)
 	w.stack = gtk.NewStack()
 	w.stack.SetTransitionType(gtk.StackTransitionTypeCrossfade)
@@ -173,6 +177,9 @@ func (w *window) rebuild() {
 			first = p.name
 		}
 		w.stack.AddNamed(pg, p.name)
+	}
+	if want := os.Getenv("DDCDECK_PAGE"); want != "" && w.stack.ChildByName(want) != nil {
+		first = want // self-check/screenshot affordance; unset in normal use
 	}
 
 	names := make([]string, len(a.mons))
@@ -572,6 +579,14 @@ func buildSettings(w *window) *adw.PreferencesPage {
 	return prefsPage(info, vendor, buildDiagnostics(w), advanced)
 }
 
+// diagSummary headlines the checklist so the state is obvious without counting icons.
+func diagSummary(bad, n int) string {
+	if bad == 0 {
+		return fmt.Sprintf("All %d checks passed", n)
+	}
+	return fmt.Sprintf("%d of %d checks need attention — look for the yellow and red rows", bad, n)
+}
+
 // diagCheck mirrors one doctor result row.
 type diagCheck struct {
 	Name   string `json:"name"`
@@ -598,6 +613,13 @@ func buildDiagnostics(w *window) *adw.PreferencesGroup {
 				g.Remove(r)
 			}
 			rows = rows[:0]
+			bad := 0
+			for _, c := range cs {
+				if c.State != "ok" {
+					bad++
+				}
+			}
+			g.SetDescription(diagSummary(bad, len(cs)))
 			for _, c := range cs {
 				row := adw.NewActionRow()
 				row.SetTitle(c.Name)
