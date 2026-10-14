@@ -102,6 +102,25 @@ func Changed(base, after map[byte]ddc.Value) map[byte][2]ddc.Value {
 	return out
 }
 
+// sideEffects are standard codes that already have built-in features and that an OSD preset
+// change legitimately moves (each preset loads its own brightness, gains, colour temperature).
+var sideEffects = []byte{0x10, 0x12, 0x13, 0x14, 0x16, 0x18, 0x1A, 0x6C, 0x6E, 0x70}
+
+// DropSideEffects removes preset side-effect codes from a diff so they don't make it
+// ambiguous. If nothing else changed the diff is returned untouched.
+func DropSideEffects(d map[byte][2]ddc.Value) map[byte][2]ddc.Value {
+	out := map[byte][2]ddc.Value{}
+	for c, v := range d {
+		if !slices.Contains(sideEffects, c) {
+			out[c] = v
+		}
+	}
+	if len(out) == 0 {
+		return d
+	}
+	return out
+}
+
 // Intersect keeps the codes present in both diffs (second OSD change narrows the candidate).
 func Intersect(a, b map[byte][2]ddc.Value) map[byte][2]ddc.Value {
 	out := map[byte][2]ddc.Value{}

@@ -103,3 +103,14 @@ func TestFeatureInference(t *testing.T) {
 }
 
 func intPtr(i int) *int { return &i }
+
+func TestDropSideEffects(t *testing.T) {
+	d := map[byte][2]ddc.Value{0x10: {}, 0xE3: {}}
+	if got := DropSideEffects(d); len(got) != 1 || got[0xE3] != d[0xE3] {
+		t.Errorf("got %v", got)
+	}
+	only := map[byte][2]ddc.Value{0x10: {}}
+	if len(DropSideEffects(only)) != 1 {
+		t.Error("must not empty the diff")
+	}
+}

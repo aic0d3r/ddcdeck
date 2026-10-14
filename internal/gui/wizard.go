@@ -263,7 +263,7 @@ func (w *guiWizard) afterRead(err error, snap map[byte]ddc.Value) {
 		w.phaseOsd("Reading failed — try again.")
 		return
 	}
-	d := wizard.Changed(w.prev, snap)
+	d := wizard.DropSideEffects(wizard.Changed(w.prev, snap))
 	if w.round > 0 {
 		d = wizard.Intersect(w.diff, d)
 		for c, v := range d {

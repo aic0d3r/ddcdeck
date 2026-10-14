@@ -106,3 +106,10 @@ func TestVendorHints(t *testing.T) {
 		t.Error("vendor lookup wrong")
 	}
 }
+
+func TestMCCSSkipsWideValues(t *testing.T) {
+	m := Model{Mfg: "A", Model: "B", Features: map[string]Feature{"p": {VCP: 0xE3, Type: "enum", Values: map[string]int{"x": 0x1ff}}}}
+	if out := m.MCCS(); strings.Contains(out, "x1FF") || strings.Contains(out, " NC") {
+		t.Errorf("wide value leaked:\n%s", out)
+	}
+}

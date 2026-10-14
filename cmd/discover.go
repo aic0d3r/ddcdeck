@@ -100,7 +100,7 @@ func discoverOne(in *bufio.Reader, sess *wizard.Session, name string) (*model.Fe
 		if err != nil {
 			return nil, err
 		}
-		d := wizard.Changed(prev, snap) // consecutive diff: only this round's change appears
+		d := wizard.DropSideEffects(wizard.Changed(prev, snap)) // consecutive diff: only this round's change appears
 		if round > 1 {
 			d = wizard.Intersect(diff, d)
 			for c, v := range d { // keep the very first old value for the write-back check

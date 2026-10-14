@@ -134,16 +134,29 @@ func (m Model) MCCS() string {
 	for _, name := range slices.Sorted(maps.Keys(m.Features)) {
 		f := m.Features[name]
 		kind := "C"
-		if f.Type == "enum" {
+		if f.Type == "enum" && !wide(f) {
 			kind = "NC"
 		}
 		fmt.Fprintf(&b, "FEATURE_CODE %02X %s\n  ATTRS RW %s\n", f.VCP, name, kind)
 		for _, vn := range slices.Sorted(maps.Keys(f.Values)) {
+			if f.Values[vn] > 0xff {
+				continue // ddcutil VALUE lines are one byte; such codes are written as continuous
+			}
 			// the leading x matters: ddcutil reads bare numbers as decimal (x11 = 17, 11 = 11)
 			fmt.Fprintf(&b, "  VALUE x%02X %s\n", f.Values[vn], vn)
 		}
 	}
 	return b.String()
+}
+
+// wide reports enum values that need both SH and SL (e.g. 0x1FF); ddcutil can't name those.
+func wide(f Feature) bool {
+	for _, v := range f.Values {
+		if v > 0xff {
+			return true
+		}
+	}
+	return false
 }
 
 func dataHome() string {
