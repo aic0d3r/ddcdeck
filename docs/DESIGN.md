@@ -263,6 +263,12 @@ Automates the manual method used to find blue light = `0xE6`:
 - **Logs without systemd** — the GUI-spawned daemon writes `~/.cache/ddcdeck/daemon.log`
   (`DDCDECK_LOG`), which `ddcdeck daemon logs` prefers over the journal.
 
+**Density guard (2026-10).** Plain Gtk controls in preference cards read oversized
+(Adwaita enforces a 34px touch floor that padding-only fixes bounce off). The app CSS now
+sets row density for every button/entry/spinbutton/dropdown inside `.card` - future rows
+cannot forget a size class and come out chunky. Prefer AdwComboRow/AdwSpinRow for new
+rows; the CSS is the safety net, not the primary tool.
+
 **Skill audit round (2026-10, impeccable polish + renders).** The rule dialog gates Add
 until the time parses (client mirrors server grammar); Diagnostics gained a summary line
 ("All 7 checks passed"); the header automation button shows a pause glyph when paused
