@@ -1,0 +1,11 @@
+# Dell U2715H (HDMI 2). Imported from ddccontrol-db (DELD069.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "U2715H"
+product = 53353
+
+[feature.osdorientation]
+vcp      = 0xaa
+type     = "enum"
+values   = { landscape = 0x01, portraitright = 0x02, portraitleft = 0x04 }
+verified = false

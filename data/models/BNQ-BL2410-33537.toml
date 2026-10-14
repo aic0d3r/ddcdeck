@@ -1,0 +1,38 @@
+# BenQ BL2410. Imported from ddccontrol-db (BNQ8301.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "BNQ"
+model   = "BL2410"
+product = 33537
+
+[feature.coarse]
+vcp      = 0x0e
+type     = "range"
+verified = false
+
+[feature.saturation]
+vcp      = 0x8a
+type     = "range"
+verified = false
+
+[feature.hue]
+vcp      = 0x90
+type     = "range"
+verified = false
+
+[feature.screenorientation]
+vcp      = 0xaa
+type     = "enum"
+values   = { landscape = 0x01, portrait = 0x02, cannotsupply = 0xff }
+verified = false
+
+[feature.osd]
+vcp      = 0xca
+type     = "enum"
+values   = { disable = 0x01, enable = 0x02 }
+verified = false
+
+[feature.bnqmode]
+vcp      = 0xdc
+type     = "enum"
+values   = { mode0 = 0x00, mode3 = 0x03, modeb = 0x0b, modec = 0x0c, modee = 0x0e, modef = 0x0f, mode10 = 0x10, mode11 = 0x11, mode12 = 0x12, mode13 = 0x13, mode14 = 0x14 }
+verified = false

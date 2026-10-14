@@ -1,0 +1,17 @@
+# Dell S2721D (HDMI-1). Imported from ddccontrol-db (DELA19A.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "S2721D"
+product = 41370
+
+[feature.osd]
+vcp      = 0xca
+type     = "enum"
+values   = { disable = 0x01, enable = 0x02 }
+verified = false
+
+[feature.energysaving2]
+vcp      = 0xe0
+type     = "enum"
+values   = { on = 0x01, off = 0x00 }
+verified = false

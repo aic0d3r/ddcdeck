@@ -1,0 +1,28 @@
+# ASUS TUF VG34VQ3B. Imported from ddccontrol-db (AUS3453.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "AUS"
+model   = "VG34VQ3B"
+product = 13395
+
+[feature.bluelight]
+vcp      = 0xe6
+type     = "enum"
+values   = { level_0 = 0x00, level_1 = 0x01, level_2 = 0x02, level_3 = 0x03, level_4 = 0x04 }
+verified = false
+
+[feature.saturation]
+vcp      = 0x8a
+type     = "range"
+verified = false
+
+[feature.fps_counter]
+vcp      = 0xea
+type     = "enum"
+values   = { off = 0x00, on = 0x01, graph = 0x02 }
+verified = false
+
+[feature.crosshair]
+vcp      = 0xe3
+type     = "enum"
+values   = { off = 0x00, style_1 = 0x07, style_2 = 0x08, style_3 = 0x09, style_4 = 0x0a, style_5 = 0x0b, style_6 = 0x0c }
+verified = false

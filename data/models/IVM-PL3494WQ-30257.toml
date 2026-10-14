@@ -1,0 +1,17 @@
+# Iiyama PL3494WQ. Imported from ddccontrol-db (IVM7631.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "IVM"
+model   = "PL3494WQ"
+product = 30257
+
+[feature.ratio]
+vcp      = 0x86
+type     = "enum"
+values   = { v1to1 = 0x01, original = 0x02, wide = 0x05 }
+verified = false
+
+[feature.osd]
+vcp      = 0xca
+type     = "enum"
+values   = { disable = 0x01, enable = 0x02 }
+verified = false

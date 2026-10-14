@@ -1,0 +1,11 @@
+# ViewSonic VG2253. Imported from ddccontrol-db (VSC0933.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "VSC"
+model   = "VG2253"
+product = 2355
+
+[feature.osd]
+vcp      = 0xca
+type     = "enum"
+values   = { disable = 0x01, enable = 0x02 }
+verified = false

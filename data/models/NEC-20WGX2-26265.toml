@@ -1,0 +1,10 @@
+# NEC Multisync 20WGX2 Pro. Imported from ddccontrol-db (NEC6699.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "NEC"
+model   = "20WGX2"
+product = 26265
+
+[feature.sharpness]
+vcp      = 0x8c
+type     = "range"
+verified = false

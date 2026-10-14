@@ -1,0 +1,23 @@
+# Dell Pro Plus P3225QE. Imported from ddccontrol-db (DEL437F.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "P3225QE"
+product = 17279
+
+[feature.osdorientation]
+vcp      = 0xaa
+type     = "enum"
+values   = { landscape = 0x01, portraitleft = 0x02, portraitright = 0x04 }
+verified = false
+
+[feature.magicbright]
+vcp      = 0xdc
+type     = "enum"
+values   = { standard = 0x00, movie = 0x03, game = 0x05 }
+verified = false
+
+[feature.energysaving2]
+vcp      = 0xe0
+type     = "enum"
+values   = { on = 0x01, off = 0x00 }
+verified = false

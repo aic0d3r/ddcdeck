@@ -1,0 +1,23 @@
+# Dell P3223DE (USB-C). Imported from ddccontrol-db (DEL4295.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "P3223DE"
+product = 17045
+
+[feature.osdorientation]
+vcp      = 0xaa
+type     = "enum"
+values   = { landscape = 0x01, portraitleft = 0x02, portraitright = 0x04 }
+verified = false
+
+[feature.magicbright]
+vcp      = 0xdc
+type     = "enum"
+values   = { standard = 0x00, movie = 0x03, game = 0x05 }
+verified = false
+
+[feature.energysaving2]
+vcp      = 0xe0
+type     = "enum"
+values   = { on = 0x01, off = 0x00 }
+verified = false

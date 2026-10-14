@@ -1,0 +1,10 @@
+# Dell P2219H. Imported from ddccontrol-db (DELA114.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "P2219H"
+product = 41236
+
+[feature.osdorientation]
+vcp      = 0xaa
+type     = "range"
+verified = false

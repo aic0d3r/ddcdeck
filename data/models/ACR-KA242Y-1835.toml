@@ -1,0 +1,82 @@
+# Acer KA242Y. Imported from ddccontrol-db (ACR072B.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "ACR"
+model   = "KA242Y"
+product = 1835
+
+[feature.redhue]
+vcp      = 0x9b
+type     = "range"
+verified = false
+
+[feature.greenhue]
+vcp      = 0x9d
+type     = "range"
+verified = false
+
+[feature.bluehue]
+vcp      = 0x9f
+type     = "range"
+verified = false
+
+[feature.yellowhue]
+vcp      = 0x9c
+type     = "range"
+verified = false
+
+[feature.magentahue]
+vcp      = 0xa0
+type     = "range"
+verified = false
+
+[feature.cyanhue]
+vcp      = 0x9e
+type     = "range"
+verified = false
+
+[feature.redsaturate]
+vcp      = 0x59
+type     = "range"
+verified = false
+
+[feature.greensaturate]
+vcp      = 0x5b
+type     = "range"
+verified = false
+
+[feature.bluesaturate]
+vcp      = 0x5d
+type     = "range"
+verified = false
+
+[feature.yellowsaturate]
+vcp      = 0x5a
+type     = "range"
+verified = false
+
+[feature.magentasaturate]
+vcp      = 0x5e
+type     = "range"
+verified = false
+
+[feature.cyansaturate]
+vcp      = 0x5c
+type     = "range"
+verified = false
+
+[feature.mode]
+vcp      = 0xe2
+type     = "enum"
+values   = { user = 0x00, darkroom = 0x0d, reading = 0x0c, srgb = 0x09, standard = 0x01, eco = 0x02, graphics = 0x03, movie = 0x04 }
+verified = false
+
+[feature.gamma]
+vcp      = 0x72
+type     = "enum"
+values   = { v1_8 = 0x50, v2_2 = 0x78, v2_4 = 0x8c }
+verified = false
+
+[feature.blackboost]
+vcp      = 0xe5
+type     = "range"
+verified = false

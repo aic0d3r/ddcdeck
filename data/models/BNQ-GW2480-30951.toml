@@ -1,0 +1,23 @@
+# BenQ GW2480. Imported from ddccontrol-db (BNQ78E7.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "BNQ"
+model   = "GW2480"
+product = 30951
+
+[feature.osd]
+vcp      = 0xca
+type     = "enum"
+values   = { disable = 0x01, enable = 0x02 }
+verified = false
+
+[feature.bnqbrightintelligence]
+vcp      = 0xe2
+type     = "enum"
+values   = { off = 0x00, on = 0x01 }
+verified = false
+
+[feature.bnqlightmeter]
+vcp      = 0xe3
+type     = "enum"
+values   = { off = 0x00, on = 0x01 }
+verified = false

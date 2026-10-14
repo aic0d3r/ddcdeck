@@ -1,0 +1,11 @@
+# Lenovo ThinkVision E27q-20. Imported from ddccontrol-db (LEN62D0.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "LEN"
+model   = "E27q-20"
+product = 25296
+
+[feature.osd]
+vcp      = 0xca
+type     = "enum"
+values   = { disable = 0x01, enable = 0x02 }
+verified = false

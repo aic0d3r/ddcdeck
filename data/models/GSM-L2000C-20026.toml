@@ -1,0 +1,17 @@
+# LG Flatron L2000C (Digital). Imported from ddccontrol-db (GSM4E3A.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "GSM"
+model   = "L2000C"
+product = 20026
+
+[feature.gamma]
+vcp      = 0xfe
+type     = "enum"
+values   = { v0 = 0x01, v0_5 = 0x02 }
+verified = false
+
+[feature.powerled]
+vcp      = 0xfd
+type     = "enum"
+values   = { off = 0x00, on = 0x01 }
+verified = false

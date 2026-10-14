@@ -1,0 +1,11 @@
+# Dell 1909W (DVI). Imported from ddccontrol-db (DELA03D.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "1909W"
+product = 41021
+
+[feature.magicbright]
+vcp      = 0xdc
+type     = "enum"
+values   = { standard = 0x00, multimedia = 0x02, movie = 0x03, nature = 0x04, game = 0x05, sports = 0x06 }
+verified = false

@@ -1,0 +1,26 @@
+# LG Flatron L1760TR (digital). Imported from ddccontrol-db (GSM445E.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "GSM"
+model   = "L1760TR"
+product = 17502
+
+[feature.fengine]
+vcp      = 0xfc
+type     = "enum"
+values   = { normal = 0x00, movie = 0x01, text = 0x02, user = 0x03 }
+verified = false
+
+[feature.fengine_brightness]
+vcp      = 0xf1
+type     = "range"
+verified = false
+
+[feature.fengine_ace]
+vcp      = 0xf2
+type     = "range"
+verified = false
+
+[feature.fengine_rcm]
+vcp      = 0xf3
+type     = "range"
+verified = false

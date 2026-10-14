@@ -1,0 +1,17 @@
+# DELL S2721DGFA. Imported from ddccontrol-db (DEL41DA.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "S2721DGFA"
+product = 16858
+
+[feature.buttonaccess]
+vcp      = 0xca
+type     = "enum"
+values   = { locked = 0x01, unlocked = 0x02 }
+verified = false
+
+[feature.energysaving2]
+vcp      = 0xe0
+type     = "enum"
+values   = { on = 0x01, off = 0x00 }
+verified = false

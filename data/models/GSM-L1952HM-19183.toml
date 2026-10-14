@@ -1,0 +1,16 @@
+# LG Flatron L1952HM. Imported from ddccontrol-db (GSM4AEF.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "GSM"
+model   = "L1952HM"
+product = 19183
+
+[feature.sharpness]
+vcp      = 0xff
+type     = "range"
+verified = false
+
+[feature.gamma]
+vcp      = 0xfe
+type     = "enum"
+values   = { v0_5 = 0x00, v0 = 0x01 }
+verified = false

@@ -1,0 +1,40 @@
+# Dell U4021QW. Imported from ddccontrol-db (DEL4206.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "U4021QW"
+product = 16902
+
+[feature.pbp]
+vcp      = 0xe9
+type     = "enum"
+values   = { off = 0x00, pbp = 0x24, pip_large = 0x22, pip_small = 0x21 }
+verified = false
+
+[feature.kvm_switch]
+vcp      = 0xe7
+type     = "enum"
+values   = { hdmi_usb1_dp_usb1_usb_c_usb1 = 0xff02, hdmi_usb1_dp_usb1_usb_c_usb_c1 = 0xff83, hdmi_usb1_dp_usb_c1_usb_c_usb1 = 0xff0b, hdmi_usb_c1_dp_usb1_usb_c_usb1 = 0xff23, hdmi_usb_c1_dp_usb1_usb_c_usb_c1 = 0xffa3, hdmi_usb1_dp_usb_c1_usb_c_usb_c1 = 0xff8b, hdmi_usb_c1_dp_usb_c1_usb_c_usb1 = 0xff2b, hdmi_usb_c1_dp_usb_c1_usb_c_usb_c1 = 0x2a }
+verified = false
+
+[feature.inputsource_sub1]
+vcp      = 0xe8
+type     = "enum"
+values   = { usb_c = 0x19, dp = 0x0f, hdmi1 = 0x11, hdmi2 = 0x12 }
+verified = false
+
+[feature.settings]
+vcp      = 0xb0
+type     = "range"
+verified = false
+
+[feature.osd]
+vcp      = 0xca
+type     = "enum"
+values   = { disable = 0x01, enable = 0x02 }
+verified = false
+
+[feature.magicbright]
+vcp      = 0xdc
+type     = "enum"
+values   = { standard = 0x00, movie = 0x03, game = 0x05 }
+verified = false

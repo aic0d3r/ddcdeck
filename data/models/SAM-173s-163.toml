@@ -1,0 +1,15 @@
+# Samsung Syncmaster 173s. Imported from ddccontrol-db (SAM00A3.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "SAM"
+model   = "173s"
+product = 163
+
+[feature.fine]
+vcp      = 0xd0
+type     = "range"
+verified = false
+
+[feature.coarse]
+vcp      = 0xd2
+type     = "range"
+verified = false

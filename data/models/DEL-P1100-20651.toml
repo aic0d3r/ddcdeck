@@ -1,0 +1,25 @@
+# Dell P1100. Imported from ddccontrol-db (DEL50AB.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "P1100"
+product = 20651
+
+[feature.autosize]
+vcp      = 0xe0
+type     = "range"
+verified = false
+
+[feature.colorreturn]
+vcp      = 0xe2
+type     = "range"
+verified = false
+
+[feature.vtopmisconvergence]
+vcp      = 0xf6
+type     = "range"
+verified = false
+
+[feature.vbottommisconvergence]
+vcp      = 0xf7
+type     = "range"
+verified = false

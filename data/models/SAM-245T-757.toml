@@ -1,0 +1,17 @@
+# Samsung SyncMaster 245T. Imported from ddccontrol-db (SAM02F5.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "SAM"
+model   = "245T"
+product = 757
+
+[feature.gamma]
+vcp      = 0xf2
+type     = "enum"
+values   = { v0_2 = 0x00, v0_1 = 0x01, v0 = 0x02, v0_3 = 0x05, v0_4 = 0x06, v0_5 = 0x07, v0_6 = 0x08 }
+verified = false
+
+[feature.magicbright]
+vcp      = 0xdc
+type     = "enum"
+values   = { text = 0x01, internet = 0x02, game = 0x03, sport = 0x04, entertain = 0x05, custom = 0x06 }
+verified = false

@@ -1,0 +1,28 @@
+# LaCie 321. Imported from ddccontrol-db (LCA21C0.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "LCA"
+model   = "321"
+product = 8640
+
+[feature.sharpness]
+vcp      = 0x8c
+type     = "range"
+verified = false
+
+[feature.osd]
+vcp      = 0xe3
+type     = "enum"
+values   = { enable = 0x00, partenable = 0x01 }
+verified = false
+
+[feature.resolutionnotifier]
+vcp      = 0xf6
+type     = "enum"
+values   = { on = 0x01, off = 0x00 }
+verified = false
+
+[feature.osd2]
+vcp      = 0xfb
+type     = "enum"
+values   = { enable = 0x01, disable = 0x00 }
+verified = false

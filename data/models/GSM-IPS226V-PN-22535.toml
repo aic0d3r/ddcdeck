@@ -1,0 +1,23 @@
+# LG IPS226V-PN. Imported from ddccontrol-db (GSM5807.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "GSM"
+model   = "IPS226V-PN"
+product = 22535
+
+[feature.femode]
+vcp      = 0xfc
+type     = "enum"
+values   = { photo = 0x00, user = 0x01, movie = 0x02, text = 0x03 }
+verified = false
+
+[feature.powerled]
+vcp      = 0xfd
+type     = "enum"
+values   = { off = 0x00, on = 0x01 }
+verified = false
+
+[feature.gamma]
+vcp      = 0xfe
+type     = "enum"
+values   = { v1_8 = 0x00, v2_0 = 0x01, v2_2 = 0x02, v2_4 = 0x03, v2_6 = 0x04 }
+verified = false

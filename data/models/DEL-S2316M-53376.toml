@@ -1,0 +1,17 @@
+# Dell S2316M (DVI). Imported from ddccontrol-db (DELD080.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "S2316M"
+product = 53376
+
+[feature.magicbright]
+vcp      = 0xdc
+type     = "enum"
+values   = { standard = 0x00, multimedia = 0x02, movie = 0x03, game = 0x05 }
+verified = false
+
+[feature.dellpaper]
+vcp      = 0xf0
+type     = "enum"
+values   = { set = 0x08 }
+verified = false

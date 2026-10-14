@@ -1,0 +1,17 @@
+# LG 32GS95UV-W Monitor. Imported from ddccontrol-db (GSM780F.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "GSM"
+model   = "32GS95UV-W"
+product = 30735
+
+[feature.osdlock]
+vcp      = 0xeb
+type     = "enum"
+values   = { off = 0x00, on = 0x01 }
+verified = false
+
+[feature.energysaving]
+vcp      = 0xf6
+type     = "enum"
+values   = { off = 0x00, low = 0x01, high = 0x02 }
+verified = false

@@ -1,0 +1,119 @@
+# LG UltraGear 27GL850. Imported from ddccontrol-db (GSM5B7F.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "GSM"
+model   = "27GL850"
+product = 23423
+
+[feature.colortempmanual]
+vcp      = 0x69
+type     = "enum"
+values   = { v5000 = 0x1388, v5500 = 0x157c, v6000 = 0x1770, v6500 = 0x1964, v7000 = 0x1b58, v7500 = 0x1d4c, v8000 = 0x1f40, v8500 = 0x2134, v9000 = 0x2328, v9300 = 0x2454, v10000 = 0x2710 }
+verified = false
+
+[feature.lgmode]
+vcp      = 0x15
+type     = "enum"
+values   = { reader = 0x01, srgb = 0x0f, fps = 0x1e, rts = 0x1f, standard = 0x24, hdreffect = 0x27, gamer1 = 0x2d, gamer2 = 0x2e, vivid = 0x31 }
+verified = false
+
+[feature.redhue]
+vcp      = 0x9b
+type     = "range"
+verified = false
+
+[feature.greenhue]
+vcp      = 0x9d
+type     = "range"
+verified = false
+
+[feature.bluehue]
+vcp      = 0x9f
+type     = "range"
+verified = false
+
+[feature.yellowhue]
+vcp      = 0x9c
+type     = "range"
+verified = false
+
+[feature.magentahue]
+vcp      = 0xa0
+type     = "range"
+verified = false
+
+[feature.cyanhue]
+vcp      = 0x9e
+type     = "range"
+verified = false
+
+[feature.redsaturate]
+vcp      = 0x59
+type     = "range"
+verified = false
+
+[feature.yellowsaturate]
+vcp      = 0x5a
+type     = "range"
+verified = false
+
+[feature.greensaturate]
+vcp      = 0x5b
+type     = "range"
+verified = false
+
+[feature.cyansaturate]
+vcp      = 0x5c
+type     = "range"
+verified = false
+
+[feature.bluesaturate]
+vcp      = 0x5d
+type     = "range"
+verified = false
+
+[feature.magentasaturate]
+vcp      = 0x5e
+type     = "range"
+verified = false
+
+[feature.energysaving]
+vcp      = 0xf6
+type     = "enum"
+values   = { off = 0x00, low = 0x01, high = 0x02 }
+verified = false
+
+[feature.freesync]
+vcp      = 0xf8
+type     = "enum"
+values   = { off = 0x00, on = 0x01 }
+verified = false
+
+[feature.responsetime]
+vcp      = 0xf7
+type     = "enum"
+values   = { off = 0x00, faster = 0x01, fast = 0x02, normal = 0x03 }
+verified = false
+
+[feature.blackstabilization]
+vcp      = 0xf9
+type     = "enum"
+values   = { v0 = 0x00, v10 = 0x02, v20 = 0x04, v30 = 0x06, v40 = 0x08, v50 = 0x0a, v60 = 0x0c, v70 = 0x0e, v80 = 0x10, v90 = 0x12, v100 = 0x14 }
+verified = false
+
+[feature.gammamode]
+vcp      = 0x72
+type     = "enum"
+values   = { mode1 = 0x6400, mode2 = 0x7800, mode3 = 0x8c00, mode4 = 0xa000 }
+verified = false
+
+[feature.ratio]
+vcp      = 0xf5
+type     = "enum"
+values   = { v1to1 = 0x00, wide = 0x01, original = 0x02 }
+verified = false
+
+[feature.osdlock]
+vcp      = 0xeb
+type     = "enum"
+values   = { on = 0x01, off = 0x00 }
+verified = false

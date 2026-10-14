@@ -1,0 +1,16 @@
+# NEC Multisync 2080UX+. Imported from ddccontrol-db (NEC662B.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "NEC"
+model   = "2080UX+"
+product = 26155
+
+[feature.sharpness]
+vcp      = 0x8c
+type     = "range"
+verified = false
+
+[feature.osd]
+vcp      = 0xfb
+type     = "enum"
+values   = { enable = 0x00, partenable = 0x01 }
+verified = false

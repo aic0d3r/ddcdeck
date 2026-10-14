@@ -113,3 +113,23 @@ func TestMCCSSkipsWideValues(t *testing.T) {
 		t.Errorf("wide value leaked:\n%s", out)
 	}
 }
+
+func TestResolveDropsUnverifiedFeatureNotInCaps(t *testing.T) {
+	m := &Model{Mfg: "X", Model: "Y", Features: map[string]Feature{
+		"guess":  {VCP: 0xE1, Type: "range"},
+		"proven": {VCP: 0xE2, Type: "range", Verified: true},
+	}}
+	fs := Resolve(m, map[byte][]int{0x10: nil})
+	if _, ok := fs["guess"]; ok {
+		t.Error("unverified feature outside caps must be dropped")
+	}
+	if _, ok := fs["proven"]; !ok {
+		t.Error("verified feature must be kept")
+	}
+	if _, ok := Resolve(m, map[byte][]int{0xE1: nil})["guess"]; !ok {
+		t.Error("unverified feature listed in caps must be kept")
+	}
+	if _, ok := Resolve(m, nil)["guess"]; !ok {
+		t.Error("unknown caps (nil) keeps everything, as before")
+	}
+}

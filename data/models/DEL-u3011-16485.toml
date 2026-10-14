@@ -1,0 +1,11 @@
+# Dell Ultrasharp u3011. Imported from ddccontrol-db (DEL4065.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "u3011"
+product = 16485
+
+[feature.magicbright]
+vcp      = 0xdc
+type     = "enum"
+values   = { standard = 0x00, multimedia = 0x02, movie = 0x03, custom = 0x04, game = 0x05 }
+verified = false

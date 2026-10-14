@@ -1,0 +1,29 @@
+# Samsung S24F354FHU. Imported from ddccontrol-db (SAM0D20.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "SAM"
+model   = "S24F354FHU"
+product = 3360
+
+[feature.magicbright]
+vcp      = 0xdc
+type     = "enum"
+values   = { standard = 0x01, cinema = 0x02, custom = 0x06, dynamic = 0xf0 }
+verified = false
+
+[feature.gamma]
+vcp      = 0xf2
+type     = "enum"
+values   = { mode1 = 0x00, mode2 = 0x01, mode3 = 0x02 }
+verified = false
+
+[feature.responsetime]
+vcp      = 0xf3
+type     = "enum"
+values   = { standard = 0x00, faster = 0x01, fastest = 0x02 }
+verified = false
+
+[feature.ecomode]
+vcp      = 0xf7
+type     = "enum"
+values   = { off = 0x00, auto = 0x04, low = 0x02, high = 0x03 }
+verified = false

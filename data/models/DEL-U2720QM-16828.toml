@@ -1,0 +1,11 @@
+# Dell U2720QM. Imported from ddccontrol-db (DEL41BC.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "U2720QM"
+product = 16828
+
+[feature.magicbright]
+vcp      = 0xdc
+type     = "enum"
+values   = { standard = 0x00, movie = 0x03, game = 0x05 }
+verified = false

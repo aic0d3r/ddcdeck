@@ -1,0 +1,10 @@
+# HWP2943. Imported from ddccontrol-db (HWP2943.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "HWP"
+model   = "HWP2943"
+product = 10563
+
+[feature.osdorientation]
+vcp      = 0xaa
+type     = "range"
+verified = false

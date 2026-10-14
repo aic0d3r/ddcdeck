@@ -1,0 +1,11 @@
+# Samsung SyncMaster 244T (VGA). Imported from ddccontrol-db (SAM01E6.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "SAM"
+model   = "244T"
+product = 486
+
+[feature.gamma]
+vcp      = 0xf2
+type     = "enum"
+values   = { v0_2 = 0x00, v0_1 = 0x01, v0 = 0x02, v0_3 = 0x05, v0_4 = 0x06, v0_5 = 0x07, v0_6 = 0x08 }
+verified = false

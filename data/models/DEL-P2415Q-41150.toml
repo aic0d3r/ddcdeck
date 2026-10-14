@@ -1,0 +1,23 @@
+# Dell P2415Q. Imported from ddccontrol-db (DELA0BE.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "P2415Q"
+product = 41150
+
+[feature.magicbright]
+vcp      = 0xdc
+type     = "enum"
+values   = { standard = 0x00, multimedia = 0x02, game = 0x05 }
+verified = false
+
+[feature.coloruniformity]
+vcp      = 0xe4
+type     = "enum"
+values   = { off = 0x00, calibrated = 0x01 }
+verified = false
+
+[feature.dynamiccontrast]
+vcp      = 0xf2
+type     = "enum"
+values   = { off = 0x00, on = 0x01 }
+verified = false

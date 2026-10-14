@@ -1,0 +1,10 @@
+# Dell U3219Q. Imported from ddccontrol-db (DELA133.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "U3219Q"
+product = 41267
+
+[feature.osdorientation]
+vcp      = 0xaa
+type     = "range"
+verified = false

@@ -1,0 +1,15 @@
+# Samtron 91S (VGA). Imported from ddccontrol-db (STN0019.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "STN"
+model   = "91S"
+product = 25
+
+[feature.fine]
+vcp      = 0xd0
+type     = "range"
+verified = false
+
+[feature.coarse]
+vcp      = 0xd2
+type     = "range"
+verified = false

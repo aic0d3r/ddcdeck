@@ -1,0 +1,150 @@
+# DELL S3221QS. Imported from ddccontrol-db (DELD107.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "S3221QS"
+product = 53511
+
+[feature.coarse]
+vcp      = 0x0e
+type     = "range"
+verified = false
+
+[feature.focus]
+vcp      = 0x1c
+type     = "range"
+verified = false
+
+[feature.hsize]
+vcp      = 0x22
+type     = "range"
+verified = false
+
+[feature.hpincushion]
+vcp      = 0x24
+type     = "range"
+verified = false
+
+[feature.hpincushionbalance]
+vcp      = 0x26
+type     = "range"
+verified = false
+
+[feature.hmisconvergence]
+vcp      = 0x28
+type     = "range"
+verified = false
+
+[feature.vsize]
+vcp      = 0x32
+type     = "range"
+verified = false
+
+[feature.vmisconvergence]
+vcp      = 0x38
+type     = "range"
+verified = false
+
+[feature.vlinearity]
+vcp      = 0x3a
+type     = "range"
+verified = false
+
+[feature.vlinearitybalance]
+vcp      = 0x3c
+type     = "range"
+verified = false
+
+[feature.fine]
+vcp      = 0x3e
+type     = "range"
+verified = false
+
+[feature.keybalance]
+vcp      = 0x40
+type     = "range"
+verified = false
+
+[feature.key]
+vcp      = 0x42
+type     = "range"
+verified = false
+
+[feature.tilt]
+vcp      = 0x44
+type     = "range"
+verified = false
+
+[feature.tdistortionctrl]
+vcp      = 0x46
+type     = "range"
+verified = false
+
+[feature.tdistortionbalance]
+vcp      = 0x48
+type     = "range"
+verified = false
+
+[feature.bdistortionctrl]
+vcp      = 0x4a
+type     = "range"
+verified = false
+
+[feature.bdistortionbalance]
+vcp      = 0x4c
+type     = "range"
+verified = false
+
+[feature.colortemp]
+vcp      = 0x54
+type     = "range"
+verified = false
+
+[feature.hmoire]
+vcp      = 0x56
+type     = "range"
+verified = false
+
+[feature.vmoire]
+vcp      = 0x58
+type     = "range"
+verified = false
+
+[feature.osd]
+vcp      = 0xca
+type     = "enum"
+values   = { disable = 0x01, enable = 0x02 }
+verified = false
+
+[feature.osdorientation]
+vcp      = 0xaa
+type     = "enum"
+values   = { landscape = 0x01, portrait = 0x02 }
+verified = false
+
+[feature.settings]
+vcp      = 0xb0
+type     = "range"
+verified = false
+
+[feature.magicbright]
+vcp      = 0xdc
+type     = "enum"
+values   = { standard = 0x00, multimedia = 0x02, movie = 0x03, custom = 0x04, game = 0x05 }
+verified = false
+
+[feature.inputsource_sub1]
+vcp      = 0xe8
+type     = "enum"
+values   = { vga = 0x01, dvi1 = 0x03, dvi2 = 0x04, component = 0x0c, dp = 0x0f, hdmi1 = 0x11, hdmi2 = 0x12, usb_c = 0x13 }
+verified = false
+
+[feature.pbp]
+vcp      = 0xe9
+type     = "enum"
+values   = { off = 0x00, pip_small = 0x21, pip_large = 0x22, pbp = 0x24 }
+verified = false
+
+[feature.febrightness]
+vcp      = 0xf1
+type     = "range"
+verified = false

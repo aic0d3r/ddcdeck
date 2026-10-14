@@ -219,6 +219,11 @@ func Resolve(m *Model, caps map[byte][]int) map[string]Feature {
 	}
 	if m != nil {
 		for name, f := range m.Features {
+			// An unverified entry (imported, or a guess) must be advertised by the monitor itself,
+			// so a wrong identity match can't make us write codes it doesn't have.
+			if _, ok := caps[byte(f.VCP)]; !f.Verified && caps != nil && !ok {
+				continue
+			}
 			out[name] = f
 		}
 	}

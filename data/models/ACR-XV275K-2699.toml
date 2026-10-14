@@ -1,0 +1,70 @@
+# Acer Nitro XV275K P3. Imported from ddccontrol-db (ACR0A8B.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "ACR"
+model   = "XV275K"
+product = 2699
+
+[feature.redsaturate]
+vcp      = 0x59
+type     = "range"
+verified = false
+
+[feature.yellowsaturate]
+vcp      = 0x5a
+type     = "range"
+verified = false
+
+[feature.greensaturate]
+vcp      = 0x5b
+type     = "range"
+verified = false
+
+[feature.cyansaturate]
+vcp      = 0x5c
+type     = "range"
+verified = false
+
+[feature.bluesaturate]
+vcp      = 0x5d
+type     = "range"
+verified = false
+
+[feature.magentasaturate]
+vcp      = 0x5e
+type     = "range"
+verified = false
+
+[feature.redhue]
+vcp      = 0x9b
+type     = "range"
+verified = false
+
+[feature.yellowhue]
+vcp      = 0x9c
+type     = "range"
+verified = false
+
+[feature.greenhue]
+vcp      = 0x9d
+type     = "range"
+verified = false
+
+[feature.cyanhue]
+vcp      = 0x9e
+type     = "range"
+verified = false
+
+[feature.bluehue]
+vcp      = 0x9f
+type     = "range"
+verified = false
+
+[feature.magentahue]
+vcp      = 0xa0
+type     = "range"
+verified = false
+
+[feature.blackboost]
+vcp      = 0xe5
+type     = "range"
+verified = false

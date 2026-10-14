@@ -1,0 +1,11 @@
+# Iiyama PL2730H. Imported from ddccontrol-db (IVM663A.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "IVM"
+model   = "PL2730H"
+product = 26170
+
+[feature.dynamiccontrast]
+vcp      = 0xfb
+type     = "enum"
+values   = { off = 0x00, on = 0x01 }
+verified = false

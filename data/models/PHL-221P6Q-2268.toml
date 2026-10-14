@@ -1,0 +1,11 @@
+# Philips 221P6Q. Imported from ddccontrol-db (PHL08DC.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "PHL"
+model   = "221P6Q"
+product = 2268
+
+[feature.powerled]
+vcp      = 0xf2
+type     = "enum"
+values   = { off = 0x00, v1 = 0x01, v2 = 0x02, v3 = 0x03, v4 = 0x04 }
+verified = false

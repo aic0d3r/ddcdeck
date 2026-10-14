@@ -1,0 +1,11 @@
+# Samsung SyncMaster S22A100N (VGA). Imported from ddccontrol-db (SAM0868.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "SAM"
+model   = "S22A100N"
+product = 2152
+
+[feature.settings]
+vcp      = 0xb0
+type     = "enum"
+values   = { store = 0x01 }
+verified = false

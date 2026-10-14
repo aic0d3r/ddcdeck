@@ -1,0 +1,22 @@
+# Dell U3421WE (Fullscreen). Imported from ddccontrol-db (DELA181.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "U3421WE"
+product = 41345
+
+[feature.magicbright]
+vcp      = 0xdc
+type     = "enum"
+values   = { standard = 0x00, movie = 0x03, game = 0x05 }
+verified = false
+
+[feature.pbp]
+vcp      = 0xe9
+type     = "enum"
+values   = { off = 0x00, pip_small = 0x21, pip_large = 0x22 }
+verified = false
+
+[feature.dellpaper]
+vcp      = 0xf0
+type     = "range"
+verified = false

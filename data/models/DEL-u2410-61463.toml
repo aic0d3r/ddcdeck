@@ -1,0 +1,11 @@
+# Dell Ultrasharp u2410 (Rev A02). Imported from ddccontrol-db (DELF017.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "u2410"
+product = 61463
+
+[feature.magicbright]
+vcp      = 0xdc
+type     = "enum"
+values   = { standard = 0x00, multimedia = 0x02, game = 0x05 }
+verified = false

@@ -1,0 +1,53 @@
+# Samsung SyncMaster E1920. Imported from ddccontrol-db (SAM06A3.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "SAM"
+model   = "E1920"
+product = 1699
+
+[feature.buttonaccess]
+vcp      = 0xe9
+type     = "enum"
+values   = { locked = 0x01, unlocked = 0x00 }
+verified = false
+
+[feature.screensize]
+vcp      = 0xdb
+type     = "enum"
+values   = { auto = 0x00, wide = 0x04 }
+verified = false
+
+[feature.magicbright]
+vcp      = 0xdc
+type     = "enum"
+values   = { custom = 0x06, standard = 0x01, game = 0x02, cinema = 0x03, dynamic = 0xf0 }
+verified = false
+
+[feature.magicangle]
+vcp      = 0xec
+type     = "enum"
+values   = { off = 0x00, leanback1 = 0x01, leanback2 = 0x02, standing = 0x03, side = 0x04, custom = 0x05 }
+verified = false
+
+[feature.coloreffect]
+vcp      = 0xea
+type     = "enum"
+values   = { off = 0x00, grayscale = 0x01, green = 0x02, aqua = 0x03, sepia = 0x04 }
+verified = false
+
+[feature.gamma]
+vcp      = 0xf2
+type     = "enum"
+values   = { mode1 = 0x00, mode2 = 0x01, mode3 = 0x02 }
+verified = false
+
+[feature.customkey]
+vcp      = 0xe8
+type     = "enum"
+values   = { magicbright = 0x00, magicangle = 0x09, magiceco = 0x0a, imagesize = 0x07 }
+verified = false
+
+[feature.ecomode]
+vcp      = 0xf7
+type     = "enum"
+values   = { off = 0x00, low = 0x01, middle = 0x02, high = 0x03 }
+verified = false

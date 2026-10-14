@@ -1,0 +1,17 @@
+# Dell U3219Q. Imported from ddccontrol-db (DELA124.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "U3219Q"
+product = 41252
+
+[feature.pbp]
+vcp      = 0xe9
+type     = "enum"
+values   = { off = 0x00, pbp = 0x24, pip_large = 0x22, pip_small = 0x21 }
+verified = false
+
+[feature.inputsource_sub1]
+vcp      = 0xe8
+type     = "enum"
+values   = { hdmi1 = 0x11, dp = 0x0f, usb_c = 0x1b }
+verified = false

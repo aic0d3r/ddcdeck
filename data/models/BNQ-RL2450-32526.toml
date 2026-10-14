@@ -1,0 +1,11 @@
+# BenQ RL2450. Imported from ddccontrol-db (BNQ7F0E.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "BNQ"
+model   = "RL2450"
+product = 32526
+
+[feature.osd]
+vcp      = 0xca
+type     = "enum"
+values   = { disable = 0x01, enable = 0x02 }
+verified = false

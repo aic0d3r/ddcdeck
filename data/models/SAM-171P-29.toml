@@ -1,0 +1,15 @@
+# Samsung SyncMaster 171P (VGA). Imported from ddccontrol-db (SAM001D.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "SAM"
+model   = "171P"
+product = 29
+
+[feature.fine]
+vcp      = 0xd0
+type     = "range"
+verified = false
+
+[feature.coarse]
+vcp      = 0xd2
+type     = "range"
+verified = false

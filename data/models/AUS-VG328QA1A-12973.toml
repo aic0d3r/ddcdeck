@@ -1,0 +1,54 @@
+# ASUS TUF VG328QA1A. Imported from ddccontrol-db (AUS32AD.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "AUS"
+model   = "VG328QA1A"
+product = 12973
+
+[feature.bluelight]
+vcp      = 0xe6
+type     = "enum"
+values   = { level_0 = 0x00, level_1 = 0x01, level_2 = 0x02, level_3 = 0x03, level_4 = 0x04 }
+verified = false
+
+[feature.saturation]
+vcp      = 0x8a
+type     = "range"
+verified = false
+
+[feature.shadowboost]
+vcp      = 0xe5
+type     = "enum"
+values   = { none = 0x00, level_1 = 0x01, level_2 = 0x02, level_3 = 0x03 }
+verified = false
+
+[feature.ecomode]
+vcp      = 0xe1
+type     = "enum"
+values   = { off = 0x00, on = 0x01 }
+verified = false
+
+[feature.osd]
+vcp      = 0xca
+type     = "enum"
+values   = { enable = 0x02, disable = 0x01 }
+verified = false
+
+[feature.variableod]
+vcp      = 0xe0
+type     = "range"
+verified = false
+
+[feature.timer]
+vcp      = 0xe4
+type     = "range"
+verified = false
+
+[feature.fps_counter]
+vcp      = 0xea
+type     = "range"
+verified = false
+
+[feature.alignmentframe]
+vcp      = 0xe7
+type     = "range"
+verified = false

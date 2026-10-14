@@ -1,0 +1,16 @@
+# Dell P2719HC. Imported from ddccontrol-db (DEL4187.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "P2719HC"
+product = 16775
+
+[feature.magicbright]
+vcp      = 0xdc
+type     = "enum"
+values   = { standard = 0x00, movie = 0x03, game = 0x05 }
+verified = false
+
+[feature.dellpaper]
+vcp      = 0xf0
+type     = "range"
+verified = false

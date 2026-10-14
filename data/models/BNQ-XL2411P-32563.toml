@@ -1,0 +1,27 @@
+# BENQ XL2411P. Imported from ddccontrol-db (BNQ7F33.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "BNQ"
+model   = "XL2411P"
+product = 32563
+
+[feature.bsforce]
+vcp      = 0x40
+type     = "enum"
+values   = { off = 0x00, on = 0x01 }
+verified = false
+
+[feature.bslength]
+vcp      = 0x41
+type     = "range"
+verified = false
+
+[feature.bsphase]
+vcp      = 0x42
+type     = "range"
+verified = false
+
+[feature.bnqmode]
+vcp      = 0xdc
+type     = "enum"
+values   = { mode0 = 0x00, mode3 = 0x03, modeb = 0x0b, modec = 0x0c, modee = 0x0e, mode15 = 0x15, mode16 = 0x16, mode17 = 0x17, mode18 = 0x18, mode19 = 0x19, mode1a = 0x1a }
+verified = false

@@ -1,0 +1,15 @@
+# Samsung Odyssey G5. Imported from ddccontrol-db (SAM7119.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "SAM"
+model   = "G5"
+product = 28953
+
+[feature.focus]
+vcp      = 0x1c
+type     = "range"
+verified = false
+
+[feature.settings]
+vcp      = 0xb0
+type     = "range"
+verified = false

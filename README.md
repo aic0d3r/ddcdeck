@@ -179,6 +179,14 @@ cp data/mccs/*.mccs ~/.local/share/ddcutil/
 ddcutil getvcp E6   # → "Blue Light Filter" on an ASUS PA279CRV
 ```
 
+## Model files
+
+`data/models/` holds the bundled per-monitor files. Only `AUS-PA279CRV-10209.toml` is verified
+on hardware; the rest were generated from [ddccontrol-db](https://github.com/ddccontrol/ddccontrol-db)
+(GPL-2.0+) by `scripts/import-ddccontrol.py` and are marked `verified = false`. Unverified
+features only appear if the monitor's own capabilities list their VCP code. If one works (or
+doesn't) on your monitor, run `ddcdeck discover` and `ddcdeck model submit`.
+
 ## License and contributing
 
 GPL-3.0-only, see [LICENSE](LICENSE). Contributions require agreeing to the

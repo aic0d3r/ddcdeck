@@ -1,0 +1,56 @@
+# LENOVO Y27gq-20. Imported from ddccontrol-db (LEN65EC.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "LEN"
+model   = "Y27gq-20"
+product = 26092
+
+[feature.backlight]
+vcp      = 0x13
+type     = "range"
+verified = false
+
+[feature.saturation]
+vcp      = 0x8a
+type     = "range"
+verified = false
+
+[feature.redsaturate]
+vcp      = 0x59
+type     = "range"
+verified = false
+
+[feature.greensaturate]
+vcp      = 0x5b
+type     = "range"
+verified = false
+
+[feature.bluesaturate]
+vcp      = 0x5d
+type     = "range"
+verified = false
+
+[feature.yellowsaturate]
+vcp      = 0x5a
+type     = "range"
+verified = false
+
+[feature.magentasaturate]
+vcp      = 0x5e
+type     = "range"
+verified = false
+
+[feature.cyansaturate]
+vcp      = 0x5c
+type     = "range"
+verified = false
+
+[feature.blackboost]
+vcp      = 0x2e
+type     = "range"
+verified = false
+
+[feature.gamma]
+vcp      = 0x72
+type     = "enum"
+values   = { v0 = 0x00, v1_8 = 0x5a, v2_2 = 0x78, v2_6 = 0x96 }
+verified = false

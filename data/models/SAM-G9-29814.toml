@@ -1,0 +1,28 @@
+# Samsung Odyssey Neo G9 LS57CG952NNXZA. Imported from ddccontrol-db (SAM7476.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "SAM"
+model   = "G9"
+product = 29814
+
+[feature.screensize]
+vcp      = 0xdb
+type     = "enum"
+values   = { auto = 0x00, wide = 0x01, v17_4_3 = 0x02, v19_4_3 = 0x03, v19_wide_16_10 = 0x04, v21_5_wide_16_9 = 0x05, v22_wide_16_10 = 0x06, v23_wide_16_9 = 0x07, v27_wide_16_9 = 0x08, v29_wide_21_9 = 0x09 }
+verified = false
+
+[feature.samsung_lighting]
+vcp      = 0xf8
+type     = "enum"
+values   = { off = 0x00, manual = 0x01 }
+verified = false
+
+[feature.samsung_lighting_effect]
+vcp      = 0xf9
+type     = "enum"
+values   = { aurora = 0x00, aurorarotation = 0x01, comet = 0x02, static = 0x03, rainbow = 0x04, breathing = 0x05 }
+verified = false
+
+[feature.samsung_lighting_color]
+vcp      = 0xfa
+type     = "range"
+verified = false

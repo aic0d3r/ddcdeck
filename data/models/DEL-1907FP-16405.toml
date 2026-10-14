@@ -1,0 +1,11 @@
+# Dell 1907FP (Digital). Imported from ddccontrol-db (DEL4015.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "1907FP"
+product = 16405
+
+[feature.osd]
+vcp      = 0xca
+type     = "enum"
+values   = { disable = 0x01, enable = 0x02 }
+verified = false

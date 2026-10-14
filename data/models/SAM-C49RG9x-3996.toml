@@ -1,0 +1,11 @@
+# C49RG9x. Imported from ddccontrol-db (SAM0F9C.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "SAM"
+model   = "C49RG9x"
+product = 3996
+
+[feature.responsetime]
+vcp      = 0xf3
+type     = "enum"
+values   = { standard = 0x00, faster = 0x01, fastest = 0x02 }
+verified = false

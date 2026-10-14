@@ -1,0 +1,11 @@
+# Iiyama ProLite T2735M. Imported from ddccontrol-db (IVM660F.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "IVM"
+model   = "T2735M"
+product = 26127
+
+[feature.osd]
+vcp      = 0xca
+type     = "enum"
+values   = { disable = 0x01, enable = 0x02 }
+verified = false

@@ -1,0 +1,11 @@
+# Samsung SyncMaster 997MB. Imported from ddccontrol-db (SAM0109.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "SAM"
+model   = "997MB"
+product = 265
+
+[feature.magicbright]
+vcp      = 0xdc
+type     = "enum"
+values   = { text = 0x01, internet = 0x02, entertain = 0x03 }
+verified = false

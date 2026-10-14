@@ -1,0 +1,82 @@
+# ASUS VP28U. Imported from ddccontrol-db (AUS28B1.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "AUS"
+model   = "VP28U"
+product = 10417
+
+[feature.displayscaling]
+vcp      = 0x86
+type     = "enum"
+values   = { v2 = 0x02, v11 = 0x0b }
+verified = false
+
+[feature.saturation]
+vcp      = 0x8a
+type     = "range"
+verified = false
+
+[feature.sourcecolorcoding]
+vcp      = 0xb5
+type     = "enum"
+values   = { v0 = 0x00, v1 = 0x01 }
+verified = false
+
+[feature.skintone]
+vcp      = 0xe0
+type     = "enum"
+values   = { reddish = 0x01, natural = 0x02, yellowish = 0x03 }
+verified = false
+
+[feature.smartview]
+vcp      = 0xe1
+type     = "enum"
+values   = { off = 0x00, on = 0x01 }
+verified = false
+
+[feature.tracefree]
+vcp      = 0xe2
+type     = "enum"
+values   = { v0 = 0x00, v20 = 0x14, v40 = 0x28, v60 = 0x3c, v80 = 0x50, v100 = 0x64 }
+verified = false
+
+[feature.vividpixel]
+vcp      = 0xe3
+type     = "enum"
+values   = { v0 = 0x00, v25 = 0x19, v50 = 0x32, v75 = 0x4b, v100 = 0x64 }
+verified = false
+
+[feature.ascr]
+vcp      = 0xe4
+type     = "enum"
+values   = { off = 0x00, on = 0x01 }
+verified = false
+
+[feature.bluelight]
+vcp      = 0xe6
+type     = "enum"
+values   = { level_0 = 0x00, level_1 = 0x01, level_2 = 0x02, level_3 = 0x03, level_4 = 0x04 }
+verified = false
+
+[feature.ecomode]
+vcp      = 0xe7
+type     = "enum"
+values   = { off = 0x00, on = 0x01 }
+verified = false
+
+[feature.keylock]
+vcp      = 0xe9
+type     = "enum"
+values   = { off = 0x00, on = 0x01 }
+verified = false
+
+[feature.powerled]
+vcp      = 0xea
+type     = "enum"
+values   = { off = 0x00, on = 0x01 }
+verified = false
+
+[feature.powerkeylock]
+vcp      = 0xeb
+type     = "enum"
+values   = { off = 0x00, on = 0x01 }
+verified = false

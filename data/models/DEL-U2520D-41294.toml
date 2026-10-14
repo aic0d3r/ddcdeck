@@ -1,0 +1,28 @@
+# Dell U2520D. Imported from ddccontrol-db (DELA14E.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "U2520D"
+product = 41294
+
+[feature.osdorientation]
+vcp      = 0xaa
+type     = "enum"
+values   = { landscape = 0x01, portraitleft = 0x02, portraitright = 0x04 }
+verified = false
+
+[feature.settings]
+vcp      = 0xb0
+type     = "range"
+verified = false
+
+[feature.osd]
+vcp      = 0xca
+type     = "enum"
+values   = { disable = 0x01, enable = 0x02 }
+verified = false
+
+[feature.magicbright]
+vcp      = 0xdc
+type     = "enum"
+values   = { standard = 0x00, movie = 0x03, game = 0x05 }
+verified = false

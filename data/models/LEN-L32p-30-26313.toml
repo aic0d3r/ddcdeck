@@ -1,0 +1,35 @@
+# Lenovo L32p-30. Imported from ddccontrol-db (LEN66C9.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "LEN"
+model   = "L32p-30"
+product = 26313
+
+[feature.dynamiccontrast]
+vcp      = 0xea
+type     = "enum"
+values   = { off = 0x00, on = 0x01 }
+verified = false
+
+[feature.variableod]
+vcp      = 0xe0
+type     = "enum"
+values   = { off = 0x00, level_1 = 0x03, level_2 = 0x04, level_3 = 0x05, level_4 = 0x06 }
+verified = false
+
+[feature.freesync]
+vcp      = 0xae
+type     = "enum"
+values   = { on = 0x1770, off = 0x177a }
+verified = false
+
+[feature.hdr]
+vcp      = 0xef
+type     = "enum"
+values   = { off = 0x00, hdr = 0x06, hdr_game = 0x07, hdr_movie = 0x08, hdr_photo = 0x09 }
+verified = false
+
+[feature.scenario]
+vcp      = 0xdc
+type     = "enum"
+values   = { panel_native = 0x00, image_creation = 0x01, digital_cinema = 0x03, video_creation = 0x05, low_blue_light = 0x06 }
+verified = false

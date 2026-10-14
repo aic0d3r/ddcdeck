@@ -1,0 +1,17 @@
+# Dell U3415W (DP). Imported from ddccontrol-db (DELA0A6.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "DEL"
+model   = "U3415W"
+product = 41126
+
+[feature.uniformitycompensation]
+vcp      = 0xe4
+type     = "enum"
+values   = { off = 0x00, calibrated = 0x01 }
+verified = false
+
+[feature.dellpaper]
+vcp      = 0xf0
+type     = "enum"
+values   = { set = 0x08 }
+verified = false

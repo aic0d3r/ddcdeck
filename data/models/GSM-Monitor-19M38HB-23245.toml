@@ -1,0 +1,23 @@
+# LG LCD Monitor-19M38HB. Imported from ddccontrol-db (GSM5ACD.xml, GPL-2.0+), NOT verified on hardware.
+# Model string and product id are inferred; correct them or confirm with `ddcdeck discover`.
+mfg     = "GSM"
+model   = "Monitor-19M38HB"
+product = 23245
+
+[feature.dvmode]
+vcp      = 0x15
+type     = "enum"
+values   = { standard = 0x26, text = 0x21, movie = 0x30, gaming = 0x40, photo = 0x20 }
+verified = false
+
+[feature.superbright]
+vcp      = 0x15
+type     = "enum"
+values   = { one = 0x26, two = 0x10, three = 0x11 }
+verified = false
+
+[feature.gamma]
+vcp      = 0xfe
+type     = "enum"
+values   = { v0_5 = 0x00, v0 = 0x01 }
+verified = false
