@@ -1,0 +1,34 @@
+mfg = "TST"
+model = "E2EDECK"
+product = 4242
+
+[feature]
+  [feature.dark_boost]
+    vcp = 228
+    type = "range"
+    min = 0
+    max = 100
+    off = 0
+    verified = true
+  [feature.proart_preset]
+    vcp = 224
+    type = "enum"
+    min = 0
+    max = 0
+    verified = true
+    [feature.proart_preset.values]
+      adobe_rgb = 2
+      dci_p3 = 3
+      rec709 = 4
+      srgb = 1
+      standard = 0
+  [feature.response_time]
+    vcp = 241
+    type = "enum"
+    min = 0
+    max = 0
+    verified = false
+    [feature.response_time.values]
+      fast = 1
+      fastest = 2
+      normal = 0
