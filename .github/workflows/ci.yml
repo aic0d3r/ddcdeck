@@ -7,7 +7,8 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-24.04
+    # 26.04: the GUI links libgtk4-layer-shell, which Ubuntu only packages from 25.04 on.
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v4
 
@@ -15,28 +16,21 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # libgirepository1.0-dev: gotk4's cgo needs gobject-introspection-1.0.pc
       - name: Install GTK dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            libgtk-4-dev libadwaita-1-dev libgtk4-layer-shell-dev
+            libgtk-4-dev libadwaita-1-dev libgtk4-layer-shell-dev libgirepository1.0-dev
 
-      - name: Packages that can build here
-        id: pkgs
-        run: |
-          # the GUI package is cgo: if the layer-shell dev package is missing on the
-          # runner's distro, keep testing the daemon/CLI instead of failing the run
-          if pkg-config --exists gtk4-layer-shell-0 && pkg-config --exists libadwaita-1; then
-            echo list=./... >> "$GITHUB_OUTPUT"
-          else
-            echo list="$(go list ./... | grep -v /internal/gui)" >> "$GITHUB_OUTPUT"
-          fi
-
+      # The GTK bindings are cgo and take minutes to compile, once per distinct set of build
+      # flags. -trimpath matches `make build-gui`, so vet and the build share one compile;
+      # testing only packages that have tests (the GUI has none) avoids a third, -race, one.
       - name: vet
-        run: go vet ${{ steps.pkgs.outputs.list }}
+        run: go vet -trimpath ./...
 
       - name: test
-        run: go test -race ${{ steps.pkgs.outputs.list }}
+        run: go test -race $(go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./...)
 
       - name: build
         run: make build build-gui
