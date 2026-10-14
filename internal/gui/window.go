@@ -612,13 +612,13 @@ func buildMonitor(w *window) *adw.PreferencesPage {
 		resetGroup := adw.NewPreferencesGroup()
 		resetGroup.SetTitle("Reset")
 		rst := adw.NewActionRow()
-		rst.SetTitle("Factory reset")
+		rst.SetTitle("Factory reset " + m.Model)
 		rst.SetSubtitle("Every monitor setting back to its defaults; profiles are not affected")
 		btn := gtk.NewButtonWithLabel("Reset…")
 		btn.AddCSSClass("destructive-action")
 		btn.SetVAlign(gtk.AlignCenter)
 		btn.ConnectClicked(func() {
-			confirm := adw.NewAlertDialog("Reset this monitor?", "Brightness, color and input settings go back to factory defaults.")
+			confirm := adw.NewAlertDialog(fmt.Sprintf("Reset %s (%s)?", m.Model, m.Connector), "Brightness, color and input settings on this monitor go back to factory defaults.")
 			confirm.AddResponse("cancel", "Cancel")
 			confirm.AddResponse("reset", "Reset")
 			confirm.SetResponseAppearance("reset", adw.ResponseDestructive)
@@ -628,7 +628,7 @@ func buildMonitor(w *window) *adw.PreferencesPage {
 					return
 				}
 				a.set("reset", "factory")
-				a.toast("Factory reset sent")
+				a.toast("Factory reset sent to " + m.Model)
 				a.refresh() // every value just changed on the monitor itself
 			})
 			confirm.Present(&w.win.Window)
