@@ -72,3 +72,17 @@ func TestFetch(t *testing.T) {
 		}
 	}
 }
+
+func TestFeedbackURL(t *testing.T) {
+	u, err := url.Parse(FeedbackURL("DEL-U2720Q-16823", false, []string{"Ecomode"}, "v1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := u.Query()
+	if q.Get("title") != "Model feedback: DEL-U2720Q-16823 does not work" {
+		t.Errorf("title = %q", q.Get("title"))
+	}
+	if b := q.Get("body"); !strings.Contains(b, "- Ecomode") || !strings.Contains(b, "ddcdeck v1") {
+		t.Errorf("body = %q", b)
+	}
+}

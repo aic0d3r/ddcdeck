@@ -36,7 +36,8 @@ func pageList() []page {
 		{"input", "Input", "video-display-symbolic", buildInput},
 		{"profiles", "Profiles", "starred-symbolic", buildProfiles},
 		{"automation", "Automation", "alarm-symbolic", buildAutomation},
-		{"settings", "Settings", "emblem-system-symbolic", buildSettings},
+		{"monitor", "Monitor", "preferences-desktop-display-symbolic", buildMonitor},
+		{"settings", "Settings", "emblem-system-symbolic", buildAppSettings},
 	}
 }
 
@@ -144,6 +145,9 @@ func newWindow(a *App) *window {
 	return w
 }
 
+// isInfoPage: the pages that have their own lookup/discover rows, so the banner stays away.
+func isInfoPage(name string) bool { return name == "monitor" || name == "settings" }
+
 // setBanner words the no-model-file banner: first a lookup in the community database (the
 // likely fix, one click), and only when that comes back empty the guided discovery.
 func (w *window) setBanner() {
@@ -246,7 +250,7 @@ func (w *window) rebuild() {
 		w.bannerFor, w.notFound = a.cur.ID, false
 	}
 	w.setBanner()
-	w.banner.SetRevealed(!a.cur.HasModel && w.stack.VisibleChildName() != "settings")
+	w.banner.SetRevealed(!a.cur.HasModel && !isInfoPage(w.stack.VisibleChildName()))
 
 	if visible == "status" || w.stack.ChildByName(visible) == nil {
 		visible = first
@@ -264,7 +268,7 @@ func (w *window) show(name string) {
 		}
 	}
 	if w.a.cur != nil {
-		w.banner.SetRevealed(name != "settings" && !w.a.cur.HasModel)
+		w.banner.SetRevealed(!isInfoPage(name) && !w.a.cur.HasModel)
 	}
 }
 
@@ -467,7 +471,7 @@ func buildInput(w *window) *adw.PreferencesPage {
 	return prefsPage(g, group(a, b, "KVM", "kvm"))
 }
 
-func buildSettings(w *window) *adw.PreferencesPage {
+func buildMonitor(w *window) *adw.PreferencesPage {
 	a := w.a
 	m := a.cur
 	prop := func(title, value string) *adw.ActionRow {
@@ -491,47 +495,49 @@ func buildSettings(w *window) *adw.PreferencesPage {
 	})
 	info.Add(conn)
 
-	// which monitor the CLI and the rules address when -d is left out (shared config.toml)
-	defRow := adw.NewActionRow()
-	defRow.SetTitle("Default monitor for CLI and rules")
-	pinnedSel := func() string {
-		if s := m.Serial; s != "" {
-			return s
+	if len(a.mons) > 1 { // with one monitor there is nothing to choose
+		// which monitor the CLI and the rules address when -d is left out (shared config.toml)
+		defRow := adw.NewActionRow()
+		defRow.SetTitle("Default monitor for CLI and rules")
+		pinnedSel := func() string {
+			if s := m.Serial; s != "" {
+				return s
+			}
+			return m.ID
 		}
-		return m.ID
-	}
-	useBtn := gtk.NewButtonWithLabel("Use this monitor")
-	useBtn.SetVAlign(gtk.AlignCenter)
-	showDefault := func() {
-		pinned := deck.DefaultDisplay()
-		if deck.Match([]*deck.Monitor{m}, pinned) != nil {
-			defRow.SetSubtitle("Pinned to this monitor (" + m.Model + ")")
-			useBtn.SetLabel("Unpin")
-		} else if pinned != "" {
-			defRow.SetSubtitle("Pinned to “" + pinned + "”")
-			useBtn.SetLabel("Use this monitor")
-		} else {
-			defRow.SetSubtitle("Not set — the first monitor detected is used")
-			useBtn.SetLabel("Use this monitor")
+		useBtn := gtk.NewButtonWithLabel("Use this monitor")
+		useBtn.SetVAlign(gtk.AlignCenter)
+		showDefault := func() {
+			pinned := deck.DefaultDisplay()
+			if deck.Match([]*deck.Monitor{m}, pinned) != nil {
+				defRow.SetSubtitle("Pinned to this monitor (" + m.Model + ")")
+				useBtn.SetLabel("Unpin")
+			} else if pinned != "" {
+				defRow.SetSubtitle("Pinned to “" + pinned + "”")
+				useBtn.SetLabel("Use this monitor")
+			} else {
+				defRow.SetSubtitle("Not set — the first monitor detected is used")
+				useBtn.SetLabel("Use this monitor")
+			}
 		}
-	}
-	useBtn.ConnectClicked(func() {
-		toast := m.Model + " is now the default monitor"
-		sel := pinnedSel()
-		if deck.Match([]*deck.Monitor{m}, deck.DefaultDisplay()) != nil { // pinned here: clear
-			sel = ""
-			toast = "Default monitor unpinned"
-		}
-		if err := deck.SetDefaultDisplay(sel); err != nil {
-			a.toast(err.Error())
-			return
-		}
+		useBtn.ConnectClicked(func() {
+			toast := m.Model + " is now the default monitor"
+			sel := pinnedSel()
+			if deck.Match([]*deck.Monitor{m}, deck.DefaultDisplay()) != nil { // pinned here: clear
+				sel = ""
+				toast = "Default monitor unpinned"
+			}
+			if err := deck.SetDefaultDisplay(sel); err != nil {
+				a.toast(err.Error())
+				return
+			}
+			showDefault()
+			a.toast(toast)
+		})
 		showDefault()
-		a.toast(toast)
-	})
-	showDefault()
-	defRow.AddSuffix(useBtn)
-	info.Add(defRow)
+		defRow.AddSuffix(useBtn)
+		info.Add(defRow)
+	}
 
 	// tier 2: vendor support in one place, with the guided way out
 	vendor := adw.NewPreferencesGroup()
@@ -545,14 +551,17 @@ func buildSettings(w *window) *adw.PreferencesPage {
 	sort.Strings(known)
 	if m.HasModel && len(known) > 0 {
 		vendor.Add(prop("Community file loaded", "Extra features: "+strings.Join(known, ", ")))
+		if un := unverifiedTitles(m); len(un) > 0 {
+			vendor.Add(unverifiedRow(w, un))
+		}
 	} else {
 		r := adw.NewActionRow()
 		r.SetTitle("No community file for this model")
-		r.SetSubtitle("Standard features only — fetch one from the database, or discover the rest below")
+		r.SetSubtitle("Standard features only. Look it up in the community database, or map the rest below.")
 		id := fmt.Sprintf("%s-%s-%d", m.Mfg, m.Model, m.Product)
-		fetch := gtk.NewButtonWithLabel("Fetch…")
+		fetch := gtk.NewButtonWithLabel("Look up")
 		fetch.SetVAlign(gtk.AlignCenter)
-		fetch.SetTooltipText("Look up this model in the community database (one file, opt-in)")
+		fetch.SetTooltipText(fmt.Sprintf("Sends only the model ID (%s) to github.com. Nothing else.", id))
 		fetch.ConnectClicked(func() {
 			fetch.SetSensitive(false)
 			a.call("model.fetch", map[string]any{"id": id}, nil, func(err error) {
@@ -561,7 +570,7 @@ func buildSettings(w *window) *adw.PreferencesPage {
 					a.toast(err.Error()) // usually: none in the database yet
 					return
 				}
-				a.toast("Model file fetched")
+				a.toast("Model file loaded")
 				var res deck.ListResult
 				a.call("list", deck.Params{}, &res, func(error) { a.setMonitors(res.Monitors) })
 			})
@@ -582,7 +591,26 @@ func buildSettings(w *window) *adw.PreferencesPage {
 	disco.AddSuffix(start)
 	vendor.Add(disco)
 
-	if _, supported := m.Features["reset"]; supported {
+	// tier 3: jargon behind one collapsed expander
+	adv := adw.NewExpanderRow()
+	adv.SetTitle("Advanced")
+	adv.SetSubtitle("Raw VCP codes — power-user territory")
+	adv.AddRow(prop("Serial number", m.Serial))
+	adv.AddRow(prop("Product code", strconv.Itoa(m.Product)))
+	adv.AddRow(prop("Model file", fmt.Sprintf("%s (data/models/%s-%s-%d.toml)", map[bool]string{true: "loaded", false: "none"}[m.HasModel], m.Mfg, m.Model, m.Product)))
+	for _, r := range unmappedRows(a) {
+		adv.AddRow(r)
+	}
+	for _, r := range rawVCPRows(w) {
+		adv.AddRow(r)
+	}
+	advanced := adw.NewPreferencesGroup()
+	advanced.Add(adv)
+
+	groups := []*adw.PreferencesGroup{info, vendor, buildDiagnostics(w), advanced}
+	if _, supported := m.Features["reset"]; supported { // last and apart: never beside the safe actions
+		resetGroup := adw.NewPreferencesGroup()
+		resetGroup.SetTitle("Reset")
 		rst := adw.NewActionRow()
 		rst.SetTitle("Factory reset")
 		rst.SetSubtitle("Every monitor setting back to its defaults; profiles are not affected")
@@ -606,26 +634,10 @@ func buildSettings(w *window) *adw.PreferencesPage {
 			confirm.Present(&w.win.Window)
 		})
 		rst.AddSuffix(btn)
-		vendor.Add(rst)
+		resetGroup.Add(rst)
+		groups = append(groups, resetGroup)
 	}
-
-	// tier 3: jargon behind one collapsed expander
-	adv := adw.NewExpanderRow()
-	adv.SetTitle("Advanced")
-	adv.SetSubtitle("Raw VCP codes — power-user territory")
-	adv.AddRow(prop("Serial number", m.Serial))
-	adv.AddRow(prop("Product code", strconv.Itoa(m.Product)))
-	adv.AddRow(prop("Model file", fmt.Sprintf("%s (data/models/%s-%s-%d.toml)", map[bool]string{true: "loaded", false: "none"}[m.HasModel], m.Mfg, m.Model, m.Product)))
-	for _, r := range unmappedRows(a) {
-		adv.AddRow(r)
-	}
-	for _, r := range rawVCPRows(w) {
-		adv.AddRow(r)
-	}
-	advanced := adw.NewPreferencesGroup()
-	advanced.Add(adv)
-
-	return prefsPage(info, vendor, buildDiagnostics(w), advanced)
+	return prefsPage(groups...)
 }
 
 // diagSummary headlines the checklist so the state is obvious without counting icons.

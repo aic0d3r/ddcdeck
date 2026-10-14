@@ -85,3 +85,21 @@ func Fetch(id string) (string, error) {
 	}
 	return SaveUserModel(m)
 }
+
+// FeedbackURL is the prefilled GitHub issue for "this imported model file works / doesn't
+// work on my monitor": the quality signal for files that were never verified on hardware.
+// Like SubmitURL it is one deliberate click in the browser; nothing is uploaded by ddcdeck.
+func FeedbackURL(id string, works bool, features []string, version string) string {
+	verdict := "works"
+	if !works {
+		verdict = "does not work"
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "Model file `%s` %s on my monitor.\n\nUnverified features I tried:\n", id, verdict)
+	for _, f := range features {
+		fmt.Fprintf(&b, "- %s\n", f)
+	}
+	fmt.Fprintf(&b, "\nddcdeck %s\n", version)
+	return fmt.Sprintf("%s/issues/new?title=%s&body=%s", RepoURL,
+		url.QueryEscape("Model feedback: "+id+" "+verdict), url.QueryEscape(b.String()))
+}
