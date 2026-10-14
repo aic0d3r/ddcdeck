@@ -273,26 +273,46 @@ func buildEyeCare(w *window) *adw.PreferencesGroup {
 	level.SetValue(20)
 	setA11yLabel(level, "Filter strength when on")
 
+	// Set only becomes clickable once the controls differ from what is saved: it
+	// rewrites the rule file, so an idle blue button begging a stray click is a trap
+	spec := func() string {
+		sp := map[uint]string{0: "off", 1: "sunset"}[combo.Selected()]
+		if sp == "" {
+			sp = strings.TrimSpace(time.Text())
+		}
+		return sp
+	}
 	save := gtk.NewButtonWithLabel("Set")
 	save.AddCSSClass("suggested-action")
 	save.SetVAlign(gtk.AlignCenter)
+	save.SetSensitive(false)
+	save.SetTooltipText("Replaces any previous schedule")
+	baseSpec, baseLevel := "off", 20
+	refresh := func() {
+		save.SetSensitive(spec() != baseSpec || int(level.Value()) != baseLevel)
+	}
+	combo.Connect("notify::selected", refresh)
+	time.Connect("changed", refresh)
+	level.ConnectValueChanged(refresh)
+
 	save.ConnectClicked(func() {
-		spec := map[uint]string{0: "off", 1: "sunset"}[combo.Selected()]
-		if spec == "" {
-			spec = strings.TrimSpace(time.Text())
-		}
-		a.call("schedule.set", map[string]any{"spec": spec, "level": int(level.Value())}, nil, func(err error) {
+		sp := spec()
+		a.call("schedule.set", map[string]any{"spec": sp, "level": int(level.Value())}, nil, func(err error) {
 			if err != nil {
 				a.toast(err.Error())
 				return
 			}
-			a.toast("Blue light schedule: " + spec)
+			baseSpec, baseLevel = sp, int(level.Value())
+			refresh()
+			a.blueSpec = sp
+			a.updateBlueSub()
+			a.toast("Blue light schedule: " + sp)
 		})
 	})
 
 	row := adw.NewActionRow()
 	row.SetTitle("Schedule")
-	row.SetSubtitle("On and off automatically; replaces any previous schedule")
+	row.SetSubtitle("Turns the filter on and off by itself")
 	sched := gtk.NewBox(gtk.OrientationHorizontal, 8)
 	sched.Append(combo)
 	sched.Append(save)
@@ -300,7 +320,7 @@ func buildEyeCare(w *window) *adw.PreferencesGroup {
 	row.SetActivatableWidget(combo)
 
 	lvlRow := adw.NewActionRow()
-	lvlRow.SetTitle("Strength when on")
+	lvlRow.SetTitle("Level when scheduled")
 	lvlRow.AddSuffix(level)
 	g.Add(row)
 	g.Add(timeRow)
@@ -316,6 +336,9 @@ func buildEyeCare(w *window) *adw.PreferencesGroup {
 			}
 			if r.When == "sunset" || r.When == "sunrise" {
 				combo.SetSelected(1)
+				a.blueSpec, baseSpec = "sunset", "sunset"
+				a.updateBlueSub()
+				refresh()
 				return
 			}
 			if len(r.Apply) > 0 && r.Apply[0] == "bluelight-on" {
@@ -327,7 +350,10 @@ func buildEyeCare(w *window) *adw.PreferencesGroup {
 		if on != "" && off != "" {
 			combo.SetSelected(2)
 			time.SetText(on + "-" + off)
+			a.blueSpec, baseSpec = on+"-"+off, on+"-"+off
 		}
+		a.updateBlueSub()
+		refresh()
 	})
 	var prof struct {
 		Monitors []struct {
@@ -336,10 +362,12 @@ func buildEyeCare(w *window) *adw.PreferencesGroup {
 	}
 	a.call("profile.show", map[string]any{"name": "bluelight-on"}, &prof, func(err error) {
 		if err == nil && len(prof.Monitors) > 0 {
-			if v, ok := prof.Monitors[0].Fields["bluelight"].(float64); ok {
+			if v, ok := prof.Monitors[0].Fields["bluelight"].(float64); ok && v > 0 {
+				baseLevel = int(v) // rebase before SetValue, so no phantom dirty state
 				level.SetValue(v)
 			}
 		}
+		refresh()
 	})
 	return g
 }

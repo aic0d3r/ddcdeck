@@ -263,6 +263,12 @@ Automates the manual method used to find blue light = `0xE6`:
 - **Logs without systemd** — the GUI-spawned daemon writes `~/.cache/ddcdeck/daemon.log`
   (`DDCDECK_LOG`), which `ddcdeck daemon logs` prefers over the journal.
 
+**Eye care UX round (2026-10).** The filter row speaks with the schedule's voice
+(updateBlueSub: "Off — schedule turns it on at sunset"); Set arms only when the controls
+diverge from saved state (it rewrites rules.toml — an idle armed button is a trap); levels
+renamed (Filter level / Level when scheduled). Width is libadwaita's clamp (600 CSS px),
+not ours. Manual toggling never touches the schedule (user decision: schedule survives).
+
 **Schedule & location follow-up (2026-10).** `bluelight schedule` now applies the state
 the schedule implies at the moment it is set (bluelightNow: span with midnight wrap, or
 whichever sun event comes next) — through the engine, so daemon caches stay right;

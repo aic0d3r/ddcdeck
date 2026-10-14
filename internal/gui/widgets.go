@@ -126,17 +126,32 @@ func onOffRows(a *App, b *binder, feature string, f model.Feature) []gtk.Widgett
 	sw.SetTitle(title(feature))
 	if feature == "bluelight" {
 		sw.SetSubtitle("Warmer colors for the evening")
+		a.blueSwitch, a.blueOn = sw, false
 	}
 	sw.Connect("notify::active", func() {
 		a.set(feature, map[bool]string{true: "on", false: "off"}[sw.Active()])
+		if feature == "bluelight" {
+			a.blueOn = sw.Active()
+			a.updateBlueSub()
+		}
 	})
 	b.on(feature, func(fv deck.FeatureValue) {
 		if fv.On != nil {
 			sw.SetActive(*fv.On)
 		}
+		if feature == "bluelight" {
+			a.blueOn = fv.Value != 0
+			if fv.On != nil {
+				a.blueOn = *fv.On
+			}
+			a.updateBlueSub()
+		}
 	})
+	if feature == "bluelight" {
+		a.updateBlueSub()
+	}
 	lvl := adw.NewActionRow()
-	lvl.SetTitle("Level")
+	lvl.SetTitle(map[bool]string{true: "Filter level", false: "Level"}[feature == "bluelight"])
 	lvl.SetSubtitle(strconv.Itoa(*f.Off) + " = off")
 	sc := newScale(a, b, feature, f)
 	setA11yLabel(sc, title(feature)+" level")

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -72,6 +73,9 @@ type App struct {
 	rules           *RulesInfo
 	autoSwitch      *adw.SwitchRow
 	autoToggle      *gtk.ToggleButton
+	blueSwitch      *adw.SwitchRow // filter row, so the schedule can speak through it
+	blueSpec        string         // "off", "sunset", "HH:MM-HH:MM"
+	blueOn          bool
 	placeEntry      *gtk.Entry
 	placeRow        *adw.ActionRow
 	zoneStore       *gtk.TreeStore
@@ -461,4 +465,25 @@ func (a *App) runAction(action string) {
 			a.toast(err.Error())
 		}
 	})
+}
+
+// updateBlueSub lets the filter row speak with the schedule's voice when one is set:
+// "off" next to a sunset schedule means "off until sunset", and the row should say so.
+func (a *App) updateBlueSub() {
+	if a.blueSwitch == nil {
+		return
+	}
+	sub := "Warmer colors for the evening"
+	if a.blueSpec != "" && a.blueSpec != "off" {
+		on, off := "sunset", "sunrise"
+		if a.blueSpec != "sunset" {
+			on, off, _ = strings.Cut(a.blueSpec, "-")
+		}
+		if a.blueOn {
+			sub = "On — schedule turns it off at " + off
+		} else {
+			sub = "Off — schedule turns it on at " + on
+		}
+	}
+	a.blueSwitch.SetSubtitle(sub)
 }
