@@ -269,7 +269,6 @@ func buildEyeCare(w *window) *adw.PreferencesGroup {
 	combo.SetSelected(0)
 	setA11yLabel(combo, "Blue light schedule")
 	time := gtk.NewEntry()
-	slim(time, "compact")
 	time.SetPlaceholderText("21:00-07:00")
 	setA11yLabel(time, "On and off times")
 	timeRow := adw.NewActionRow()
@@ -293,7 +292,6 @@ func buildEyeCare(w *window) *adw.PreferencesGroup {
 		return sp
 	}
 	save := gtk.NewButtonWithLabel("Set")
-	slim(save, "compact")
 	save.AddCSSClass("suggested-action")
 	save.SetVAlign(gtk.AlignCenter)
 	save.SetSensitive(false)
@@ -453,7 +451,6 @@ func buildSettings(w *window) *adw.PreferencesPage {
 		return m.ID
 	}
 	useBtn := gtk.NewButtonWithLabel("Use this monitor")
-	useBtn.AddCSSClass("compact")
 	useBtn.SetVAlign(gtk.AlignCenter)
 	showDefault := func() {
 		pinned := deck.DefaultDisplay()
@@ -504,7 +501,6 @@ func buildSettings(w *window) *adw.PreferencesPage {
 		r.SetSubtitle("Standard features only — fetch one from the database, or discover the rest below")
 		id := fmt.Sprintf("%s-%s-%d", m.Mfg, m.Model, m.Product)
 		fetch := gtk.NewButtonWithLabel("Fetch…")
-		fetch.AddCSSClass("compact")
 		fetch.SetVAlign(gtk.AlignCenter)
 		fetch.SetTooltipText("Look up this model in the community database (one file, opt-in)")
 		fetch.ConnectClicked(func() {
@@ -530,7 +526,6 @@ func buildSettings(w *window) *adw.PreferencesPage {
 	disco.SetTitle("Map more features")
 	disco.SetSubtitle("Change a setting in the monitor's menu; DDC Deck finds the code behind it.")
 	start := gtk.NewButtonWithLabel("Discover…")
-	start.AddCSSClass("compact")
 	start.SetTooltipText("Guided discovery of vendor VCP codes by diffing OSD changes")
 	start.SetVAlign(gtk.AlignCenter)
 	start.ConnectClicked(func() { a.openWizard() })

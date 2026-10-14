@@ -161,7 +161,6 @@ func (w *window) saveProfileDialog() {
 	box := gtk.NewBox(gtk.OrientationVertical, 6)
 	box.SetMarginTop(6)
 	name := gtk.NewEntry()
-	slim(name, "compact")
 	name.SetPlaceholderText("Profile name")
 	setA11yLabel(name, "Profile name")
 	box.Append(name)
@@ -230,7 +229,6 @@ func buildAutomation(w *window) *adw.PreferencesPage {
 	a.placeRow = adw.NewActionRow()
 	a.placeRow.SetTitle("City")
 	entry := gtk.NewEntry()
-	slim(entry, "compact")
 	entry.SetPlaceholderText("Amsterdam, Tokyo, or 52.37 4.90")
 	entry.SetWidthChars(18)
 	setA11yLabel(entry, "Location: city or coordinates")
@@ -254,7 +252,6 @@ func buildAutomation(w *window) *adw.PreferencesPage {
 		}
 	})
 	btn := gtk.NewButtonWithLabel("Set")
-	slim(btn, "compact")
 	btn.AddCSSClass("suggested-action")
 	btn.SetVAlign(gtk.AlignCenter)
 	btn.ConnectClicked(func() {
@@ -490,7 +487,6 @@ func (w *window) addRuleDialog() {
 		trigRow.SetActivatableWidget(trig)
 
 		time := gtk.NewEntry()
-		slim(time, "compact")
 		time.SetPlaceholderText("21:30")
 		setA11yLabel(time, "Time of day")
 		timeRow := adw.NewActionRow()
@@ -596,7 +592,6 @@ func (w *window) editProfileDialog(p struct {
 	box.SetMarginTop(6)
 
 	name := gtk.NewEntry()
-	slim(name, "compact")
 	name.SetText(p.Name)
 	setA11yLabel(name, "Profile name")
 	nameRow := adw.NewActionRow()
@@ -632,7 +627,6 @@ func (w *window) editProfileDialog(p struct {
 			switch v := sec.Fields[fname].(type) {
 			case float64: // JSON number: a range value
 				spin := gtk.NewSpinButtonWithRange(0, 65535, 1)
-				slim(spin, "compact")
 				spin.SetValue(v)
 				setA11yLabel(spin, title(fname)+" value")
 				row.AddSuffix(spin)
