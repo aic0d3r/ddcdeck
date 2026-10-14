@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/aic0d3r/ddcdeck/internal/diag"
+	"github.com/aic0d3r/ddcdeck/internal/platform/linux/diag"
 )
 
 // doctor prints the whole chain a first command depends on (via the daemon when it runs,

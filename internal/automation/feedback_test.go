@@ -4,8 +4,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-
-	"github.com/aic0d3r/ddcdeck/internal/notify"
 )
 
 func TestDefaultShortcutsStayOutOfTheFile(t *testing.T) {
@@ -40,8 +38,9 @@ func TestDefaultShortcutsStayOutOfTheFile(t *testing.T) {
 func TestFireNotifiesAndRemembers(t *testing.T) {
 	e, _, _ := newEnv(t)
 	var seen []string
+	old := notifyFn
 	notifyFn = func(summary, body string) { seen = append(seen, summary+"|"+body) }
-	t.Cleanup(func() { notifyFn = notify.Send })
+	t.Cleanup(func() { notifyFn = old })
 	writeProfile(t, "night", "[monitor.\"*\"]\nbrightness = 25\n")
 
 	r := Rule{ID: "sunset|night|", When: "sunset", Apply: []string{"night"}}

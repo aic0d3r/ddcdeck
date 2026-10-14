@@ -15,6 +15,7 @@ import (
 	"github.com/aic0d3r/ddcdeck/internal/ddc"
 	"github.com/aic0d3r/ddcdeck/internal/deck"
 	"github.com/aic0d3r/ddcdeck/internal/model"
+	"github.com/aic0d3r/ddcdeck/internal/platform/linux/ddcutil"
 	"github.com/aic0d3r/ddcdeck/internal/wizard"
 )
 
@@ -42,7 +43,7 @@ func runDiscover(*cobra.Command, []string) error {
 	if err := call("monitor", deck.Params{}, &m); err != nil {
 		return err
 	}
-	sess, err := wizard.Start(ddc.Ddcutil{}, m.Bus)
+	sess, err := wizard.Start(ddcutil.Backend{}, m.Bus)
 	if err != nil {
 		return &deck.Error{Code: deck.ErrDDC, Message: err.Error()}
 	}

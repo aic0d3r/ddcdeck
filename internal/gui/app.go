@@ -23,7 +23,7 @@ import (
 
 	"github.com/aic0d3r/ddcdeck/internal/ddc"
 	"github.com/aic0d3r/ddcdeck/internal/deck"
-	"github.com/aic0d3r/ddcdeck/internal/shortcuts"
+	"github.com/aic0d3r/ddcdeck/internal/platform/linux/shortcuts"
 )
 
 // panelCSS rounds the quick panel: transparent surface, rounded card inside.

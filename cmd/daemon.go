@@ -12,8 +12,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/aic0d3r/ddcdeck/internal/appwatch"
 	"github.com/aic0d3r/ddcdeck/internal/deck"
+	"github.com/aic0d3r/ddcdeck/internal/platform/linux/appwatch"
+	"github.com/aic0d3r/ddcdeck/internal/platform/linux/hotplug"
 )
 
 func init() {
@@ -83,7 +84,14 @@ func runDaemon() error {
 		slog.Info("monitor", "id", m.ID, "connector", m.Connector, "bus", m.Bus, "model_file", m.HasModel)
 	}
 	go func() {
-		if err := s.WatchHotplug(ctx); err != nil {
+		err := hotplug.Watch(ctx, func() {
+			if mons, err := s.Scan(); err != nil {
+				slog.Warn("re-scan failed", "err", err)
+			} else {
+				slog.Info("re-scanned", "monitors", len(mons))
+			}
+		})
+		if err != nil {
 			slog.Error("hotplug watcher stopped", "err", err)
 		}
 	}()

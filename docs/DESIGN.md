@@ -40,6 +40,11 @@ ddcdeckd  (systemd --user, Type=notify)
 - **DDC backend:** v1 shells out to `ddcutil --bus N --noverify`. That keeps the licence
   separate (libddcutil is GPL) and gets ddcutil's per-monitor quirks for free. If it proves
   too slow, swap it for raw `/dev/i2c-N` DDC/CI later; everything goes through the same internal `Backend` interface.
+- **Core vs platform:** `internal/` (deck, automation, model, ddc, ...) has no OS-specific
+  imports and is vetted for Windows and macOS in CI. Everything Linux-only (ddcutil backend,
+  DRM hotplug, KWin app watcher, D-Bus notifications and shortcuts, diagnostics) lives in
+  `internal/platform/linux`, and `cmd/` wires it in: `ddc.Backend` for DDC, `automation.SetNotifier`
+  and `SetDiagnoser` for the rest. A new OS adds a sibling package under `internal/platform`.
 - **Cache:** reads are served from the cache. Writes update the cache optimistically, then
   re-read once 200 ms later to confirm. The GUI never blocks on I2C.
 - **Identity:** monitors are keyed by `MFG-MODEL-SERIAL` from the EDID, never by bus number

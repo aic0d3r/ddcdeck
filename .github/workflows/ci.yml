@@ -29,6 +29,13 @@ jobs:
       - name: vet
         run: go vet -trimpath ./...
 
+      # The core must stay OS-independent: everything Linux-specific lives in internal/platform.
+      - name: core builds on Windows and macOS
+        run: |
+          core="./internal/deck ./internal/automation ./internal/model ./internal/ddc ./internal/edid ./internal/location ./internal/wizard"
+          GOOS=windows go vet $core
+          GOOS=darwin go vet $core
+
       - name: test
         run: go test -race $(go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./...)
 

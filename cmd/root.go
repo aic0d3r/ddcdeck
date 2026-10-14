@@ -12,9 +12,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/aic0d3r/ddcdeck/internal/automation"
-	"github.com/aic0d3r/ddcdeck/internal/ddc"
 	"github.com/aic0d3r/ddcdeck/internal/deck"
 	"github.com/aic0d3r/ddcdeck/internal/model"
+	"github.com/aic0d3r/ddcdeck/internal/platform/linux/ddcutil"
+	"github.com/aic0d3r/ddcdeck/internal/platform/linux/diag"
+	"github.com/aic0d3r/ddcdeck/internal/platform/linux/notify"
 )
 
 // Version is set at build time with -ldflags "-X github.com/aic0d3r/ddcdeck/cmd.Version=...".
@@ -95,10 +97,12 @@ func newService() (*deck.Service, *automation.Engine, error) {
 	if err != nil {
 		slog.Warn("some model files were skipped", "err", err)
 	}
-	s := deck.New(ddc.Ddcutil{}, models)
+	s := deck.New(ddcutil.Backend{}, models)
 	_, err = s.Scan()
 	// automation methods are registered even without the daemon: the CLI fallback and the
 	// daemon share them; the engine's scheduler only runs in the daemon
+	automation.SetNotifier(notify.Send)
+	automation.SetDiagnoser(func(s *deck.Service) any { return diag.Run(s) })
 	eng := automation.NewEngine(s)
 	automation.Register(s, eng)
 	return s, eng, err

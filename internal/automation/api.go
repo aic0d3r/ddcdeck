@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/aic0d3r/ddcdeck/internal/deck"
-	"github.com/aic0d3r/ddcdeck/internal/diag"
 	"github.com/aic0d3r/ddcdeck/internal/location"
 	"github.com/aic0d3r/ddcdeck/internal/model"
 )
@@ -346,7 +345,7 @@ func Register(s *deck.Service, e *Engine) {
 	})
 
 	reg("doctor", func(json.RawMessage) (any, error) {
-		return diag.Run(s), nil
+		return diagnose(s), nil
 	})
 
 	reg("schedule.set", func(raw json.RawMessage) (any, error) {

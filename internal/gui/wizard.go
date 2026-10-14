@@ -19,6 +19,7 @@ import (
 	"github.com/aic0d3r/ddcdeck/internal/ddc"
 	"github.com/aic0d3r/ddcdeck/internal/deck"
 	"github.com/aic0d3r/ddcdeck/internal/model"
+	"github.com/aic0d3r/ddcdeck/internal/platform/linux/ddcutil"
 	"github.com/aic0d3r/ddcdeck/internal/wizard"
 )
 
@@ -222,7 +223,7 @@ func (w *guiWizard) phaseName() {
 			}
 			w.name = name
 			w.goDDC("Reading the monitor's codes twice (about 40 s)…", func() error {
-				s, err := wizard.Start(ddc.Ddcutil{}, w.mon.Bus)
+				s, err := wizard.Start(ddcutil.Backend{}, w.mon.Bus)
 				if err == nil {
 					w.sess = s
 				}

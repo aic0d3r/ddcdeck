@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/aic0d3r/ddcdeck/internal/deck"
-	"github.com/aic0d3r/ddcdeck/internal/notify"
 )
 
 // Engine schedules and fires rules. It owns no DDC state: everything goes through the
@@ -234,8 +233,18 @@ func (e *Engine) fire(r Rule) {
 }
 
 // notifyFn is how a fired rule announces itself; tests swap it out so they can assert on
-// what the user would have seen (and stay quiet on a developer's desktop).
-var notifyFn = notify.Send
+// what the user would have seen (and stay quiet on a developer's desktop). The default
+// is silent: the platform wiring installs a real one with SetNotifier.
+var notifyFn = func(summary, body string) {}
+
+// SetNotifier installs the platform's desktop notification sender.
+func SetNotifier(f func(summary, body string)) { notifyFn = f }
+
+// diagnose runs the platform's health checks for the "doctor" call; see SetDiagnoser.
+var diagnose = func(*deck.Service) any { return nil }
+
+// SetDiagnoser installs the platform's health checks.
+func SetDiagnoser(f func(*deck.Service) any) { diagnose = f }
 
 // markFired records when a rule last ran, so `ddcdeck rules` and the GUI can answer
 // "did it fire, or is it broken?".

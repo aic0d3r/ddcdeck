@@ -2,17 +2,14 @@ package deck
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -47,9 +44,7 @@ func (s *Service) Serve(ctx context.Context, path string, ready func()) error {
 		return errors.New("another ddcdeck daemon is already listening on " + path)
 	}
 	_ = os.Remove(path) // stale socket from a crash
-	old := syscall.Umask(0o177)
-	ln, err := net.Listen("unix", path)
-	syscall.Umask(old)
+	ln, err := listenPrivate(path)
 	if err != nil {
 		return err
 	}
@@ -111,54 +106,6 @@ func (s *Service) serveConn(c net.Conn) {
 			}
 			send(resp)
 		}()
-	}
-}
-
-// WatchHotplug re-scans on DRM uevents (debounced; docks fire bursts) until ctx is done.
-func (s *Service) WatchHotplug(ctx context.Context) error {
-	fd, err := syscall.Socket(syscall.AF_NETLINK, syscall.SOCK_RAW|syscall.SOCK_CLOEXEC, syscall.NETLINK_KOBJECT_UEVENT)
-	if err != nil {
-		return err
-	}
-	if err := syscall.Bind(fd, &syscall.SockaddrNetlink{Family: syscall.AF_NETLINK, Groups: 1}); err != nil {
-		syscall.Close(fd)
-		return err
-	}
-	go func() { <-ctx.Done(); syscall.Close(fd) }()
-	kick := make(chan struct{}, 1)
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-kick:
-			}
-			time.Sleep(1500 * time.Millisecond) // let MST settle and coalesce the burst
-			for len(kick) > 0 {
-				<-kick
-			}
-			if mons, err := s.Scan(); err != nil {
-				slog.Warn("re-scan failed", "err", err)
-			} else {
-				slog.Info("re-scanned", "monitors", len(mons))
-			}
-		}
-	}()
-	buf := make([]byte, 16<<10)
-	for {
-		n, _, err := syscall.Recvfrom(fd, buf, 0)
-		if err != nil {
-			if ctx.Err() != nil {
-				return nil
-			}
-			return err
-		}
-		if bytes.Contains(buf[:n], []byte("\x00SUBSYSTEM=drm\x00")) {
-			select {
-			case kick <- struct{}{}:
-			default:
-			}
-		}
 	}
 }
 
