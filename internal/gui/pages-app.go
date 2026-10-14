@@ -106,7 +106,7 @@ func buildAppSettings(w *window) *adw.PreferencesPage {
 	src.AddSuffix(open)
 	about.Add(src)
 
-	return prefsPage(startup, about)
+	return prefsPage(startup, buildDiagnostics(w), about)
 }
 
 // unverifiedTitles names the vendor features of the loaded model file that nobody has

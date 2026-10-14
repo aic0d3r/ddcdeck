@@ -607,7 +607,7 @@ func buildMonitor(w *window) *adw.PreferencesPage {
 	advanced := adw.NewPreferencesGroup()
 	advanced.Add(adv)
 
-	groups := []*adw.PreferencesGroup{info, vendor, buildDiagnostics(w), advanced}
+	groups := []*adw.PreferencesGroup{info, vendor, advanced}
 	if _, supported := m.Features["reset"]; supported { // last and apart: never beside the safe actions
 		resetGroup := adw.NewPreferencesGroup()
 		resetGroup.SetTitle("Reset")
