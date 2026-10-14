@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
+	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 
 	"github.com/aic0d3r/ddcdeck/internal/deck"
@@ -14,11 +15,12 @@ import (
 
 // RulesInfo mirrors the rules.list result the GUI needs.
 type RulesInfo struct {
-	Auto        bool           `json:"auto"`
-	Location    Location       `json:"location"`
-	Rules       []RuleInfo     `json:"rules"`
-	Shortcuts   []ShortcutInfo `json:"shortcuts"`
-	Unsupported []string       `json:"unsupported"`
+	Auto         bool           `json:"auto"`
+	Location     Location       `json:"location"`
+	LocationName string         `json:"location_name"`
+	Rules        []RuleInfo     `json:"rules"`
+	Shortcuts    []ShortcutInfo `json:"shortcuts"`
+	Unsupported  []string       `json:"unsupported"`
 }
 
 type Location struct {
@@ -222,19 +224,47 @@ func buildAutomation(w *window) *adw.PreferencesPage {
 
 	loc := adw.NewPreferencesGroup()
 	loc.SetTitle("Location")
-	loc.SetDescription("Used for sunset and sunrise times")
-	lat := adw.NewSpinRowWithRange(-90, 90, 0.5)
-	lat.SetTitle("Latitude")
-	lat.SetDigits(2)
-	lon := adw.NewSpinRowWithRange(-180, 180, 0.5)
-	lon.SetTitle("Longitude")
-	lon.SetDigits(2)
-	for _, r := range []*adw.SpinRow{lat, lon} {
-		r.ConnectActivated(func() { a.saveLocation(lat.Value(), lon.Value()) })
+	loc.SetDescription("City for sunset and sunrise times — defaults to your timezone's city")
+	a.placeRow = adw.NewActionRow()
+	a.placeRow.SetTitle("City")
+	entry := gtk.NewEntry()
+	entry.SetPlaceholderText("Amsterdam, Tokyo, or 52.37 4.90")
+	entry.SetWidthChars(18)
+	setA11yLabel(entry, "Location: city or coordinates")
+	a.zoneStore = gtk.NewTreeStore([]glib.Type{glib.TypeString})
+	completion := gtk.NewEntryCompletion()
+	completion.SetModel(a.zoneStore)
+	completion.SetTextColumn(0)
+	entry.SetCompletion(completion)
+	setLoc := func(params map[string]any) {
+		a.call("location.set", params, nil, func(err error) {
+			if err != nil {
+				a.toast(err.Error())
+				return
+			}
+			a.toast("Location saved")
+		})
 	}
-	a.latRow, a.lonRow = lat, lon
-	loc.Add(lat)
-	loc.Add(lon)
+	entry.Connect("activate", func() {
+		if q := strings.TrimSpace(entry.Text()); q != "" {
+			setLoc(map[string]any{"query": q})
+		}
+	})
+	btn := gtk.NewButtonWithLabel("Set")
+	btn.AddCSSClass("suggested-action")
+	btn.SetVAlign(gtk.AlignCenter)
+	btn.ConnectClicked(func() {
+		if q := strings.TrimSpace(entry.Text()); q != "" {
+			setLoc(map[string]any{"query": q})
+		}
+	})
+	box := gtk.NewBox(gtk.OrientationHorizontal, 8)
+	box.Append(entry)
+	box.Append(btn)
+	a.placeRow.AddSuffix(box)
+	a.placeEntry = entry
+	loc.Add(a.placeRow)
+	a.loadZones()
 
 	rules := adw.NewPreferencesGroup()
 	rules.SetTitle("Rules")
@@ -265,9 +295,12 @@ func (a *App) refreshAutomation() {
 			a.autoSwitch.SetActive(res.Auto)
 		}
 		a.updateTrayPause(res.Auto)
-		if a.latRow != nil {
-			a.latRow.SetValue(res.Location.Lat)
-			a.lonRow.SetValue(res.Location.Lon)
+		if a.placeRow != nil {
+			now := fmt.Sprintf("%.2f, %.2f", res.Location.Lat, res.Location.Lon)
+			if res.LocationName != "" {
+				now = res.LocationName + " — " + now
+			}
+			a.placeRow.SetSubtitle("Sun times use: " + now)
 		}
 		clearGroup(a.rulesGroup, &a.ruleRows)
 		if a.rulesGroup != nil {
@@ -342,6 +375,29 @@ func (a *App) setAuto(on bool) {
 		if err != nil {
 			a.toast(err.Error())
 			a.refreshAutomation()
+		}
+	})
+}
+
+// loadZones fills the city completion once: ~400 zone names straight from tzdata.
+func (a *App) loadZones() {
+	if a.zoneStore == nil || a.zoneStore.IterNChildren(nil) > 0 {
+		return
+	}
+	var zs []struct {
+		Zone string `json:"zone"`
+	}
+	a.call("location.zones", map[string]any{}, &zs, func(err error) {
+		if err != nil {
+			return // old daemon: plain text entry still works
+		}
+		names := make([]string, 0, len(zs))
+		for _, z := range zs {
+			names = append(names, z.Zone[strings.LastIndex(z.Zone, "/")+1:])
+		}
+		slices.Sort(names)
+		for _, n := range names {
+			a.zoneStore.SetValue(a.zoneStore.Append(nil), 0, glib.NewValue(n))
 		}
 	})
 }

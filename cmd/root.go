@@ -80,6 +80,9 @@ func (l local) Call(method string, params, out any) error {
 	if err != nil {
 		return err
 	}
+	if out == nil {
+		return nil // caller only wanted success/failure, like Client.Call
+	}
 	b, err := json.Marshal(res)
 	if err != nil {
 		return err

@@ -72,7 +72,7 @@ ddcdeck power      set <on|standby|suspend|off>  # VCP D6
 ddcdeck default [selector] [--clear]          # pin the monitor used when -d is omitted
 ddcdeck profile    list | show <name> | apply <name>... | save <name> [--fields a,b]
 ddcdeck profile    edit <name> | rm <name>
-ddcdeck rule       add <when> <profile>... | rm <id> | location [lat lon]
+ddcdeck rule       add <when> <profile>... | rm <id> | location [city | "lat lon"]
 ddcdeck auto       status | enable | disable  # pause all triggers
 ddcdeck rules      list                       # active triggers and their next fire time
 
@@ -262,6 +262,16 @@ Automates the manual method used to find blue light = `0xE6`:
   appear when rules.toml declares none. They are display-only: `SaveConfig` never writes them.
 - **Logs without systemd** — the GUI-spawned daemon writes `~/.cache/ddcdeck/daemon.log`
   (`DDCDECK_LOG`), which `ddcdeck daemon logs` prefers over the journal.
+
+**Schedule & location follow-up (2026-10).** `bluelight schedule` now applies the state
+the schedule implies at the moment it is set (bluelightNow: span with midnight wrap, or
+whichever sun event comes next) — through the engine, so daemon caches stay right;
+previously setting it at 13:29 meant the filter stayed wrong until tomorrow. Location
+input became names instead of numbers: `internal/location` indexes all of tzdata's
+zone/city rows (`Zones`, `Find` with exact→prefix→substring scoring, `Name` for the
+reverse label), `location.set` takes `{"query": "Tokyo"}`, the GUI City row completes
+over `location.zones`, and diag/doctor label coordinates with the nearest zone.
+Adwaita subtitles are Pango markup — server text is html-escaped before display.
 
 **Parity pass (2026-10): every action works in both the GUI and the CLI.** CLI gained
 `rule add|rm|location` (the GUI's rule editor); the GUI gained the blue light schedule

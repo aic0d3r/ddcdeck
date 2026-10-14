@@ -382,8 +382,11 @@ func TestAppRuleApplyAndRevert(t *testing.T) {
 
 func TestPauseSurvivesSunTransition(t *testing.T) {
 	e, _, bus := newEnv(t)
-	writeConfig(t, Config{Rule: []Rule{{When: "sunset", Apply: []string{"night"}}}})
+	// both sun rules with distinct values, so the test works at any hour: the stored
+	// state is set opposite to reality and the resume must fire the real transition
+	writeConfig(t, Config{Rule: []Rule{{When: "sunset", Apply: []string{"night"}}, {When: "sunrise", Apply: []string{"day"}}}})
 	writeProfile(t, "night", "[monitor.\"*\"]\nbluelight = 20\n")
+	writeProfile(t, "day", "[monitor.\"*\"]\nbluelight = 5\n")
 	e.mu.Lock()
 	night := IsNight(e.cfg.Location.Lat, e.cfg.Location.Lon, time.Now())
 	e.state.Sun = map[bool]string{true: "day", false: "night"}[night] // opposite of reality
@@ -395,9 +398,10 @@ func TestPauseSurvivesSunTransition(t *testing.T) {
 	}
 	e.SetAuto(true)
 	e.tick(time.Now()) // resume: the missed transition fires
+	want := map[bool]int{true: 20, false: 5}[night]
 	waitFor(t, func() bool {
 		bus.mu.Lock()
 		defer bus.mu.Unlock()
-		return bus.vals[0xE6].Cur == 20
+		return bus.vals[0xE6].Cur == want
 	})
 }

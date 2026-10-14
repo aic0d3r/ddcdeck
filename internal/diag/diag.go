@@ -90,7 +90,11 @@ func Run(svc *deck.Service) []Check {
 	}
 
 	if lat, lon := location.Default(); lat != 0 || lon != 0 {
-		add("sun location", OK, fmt.Sprintf("%.2f, %.2f — not you? set it in the GUI or [location]", lat, lon))
+		near := ""
+		if n := location.Name(lat, lon); n != "" {
+			near = " (" + n + ")"
+		}
+		add("sun location", OK, fmt.Sprintf("%.2f, %.2f%s — not you? set a city in the GUI or `ddcdeck rule location <city>`", lat, lon, near))
 	}
 	return cs
 }

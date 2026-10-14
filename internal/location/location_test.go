@@ -4,6 +4,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -49,5 +50,37 @@ func TestLocationDefaultFromZoneTab(t *testing.T) {
 	t.Setenv("TZ", "Mars/Olympus_Mons") // no such zone: the documented last resort
 	if lat, lon := Default(); lat != 52.37 || lon != 4.90 {
 		t.Errorf("unknown zone must keep the old default, got (%.4f, %.4f)", lat, lon)
+	}
+}
+
+func TestFind(t *testing.T) {
+	for _, q := range []string{"tokyo", "Tokyo", "europe/amst", "Amsterdam", "amsterdam"} {
+		z, ok := Find(q)
+		if !ok {
+			t.Errorf("%q not found", q)
+			continue
+		}
+		t.Logf("%q -> %s (%.1f, %.1f)", q, z.Zone, z.Lat, z.Lon)
+	}
+	if z, _ := Find("tokyo"); !strings.Contains(z.Zone, "Tokyo") {
+		t.Errorf("tokyo should resolve to the Japan zone, got %s", z.Zone)
+	}
+	if z, _ := Find("tokyo"); !strings.Contains(z.Zone, "Tokyo") {
+		t.Errorf("tokyo should resolve to the Japan zone, got %s", z.Zone)
+	}
+	if _, ok := Find("osaka"); ok {
+		t.Error("a city that is no zone's reference city must not be guessed")
+	}
+	if _, ok := Find("qzxjv nothing"); ok {
+		t.Error("nonsense must not resolve")
+	}
+	if z, ok := Find("52.37, 4.90"); !ok || z.Lat != 52.37 {
+		t.Error("raw coordinates must pass through")
+	}
+	if n := Name(52.37, 4.9); n == "" {
+		t.Error("Rotterdam should be near Amsterdam")
+	}
+	if n := Name(-33.9, 151.2); n != "Sydney" {
+		t.Errorf("expected Sydney, got %q", n)
 	}
 }

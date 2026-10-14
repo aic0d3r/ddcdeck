@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
-	"github.com/aic0d3r/ddcdeck/internal/automation"
 )
 
 var scheduleLevel int
@@ -28,14 +26,14 @@ func init() {
 }
 
 func setSchedule(spec string) error {
-	if err := automation.SetBlueLightSchedule(spec, scheduleLevel); err != nil {
+	if err := call("schedule.set", map[string]any{"spec": spec, "level": scheduleLevel}, nil); err != nil {
 		return err
 	}
 	if !quietFlag {
 		if spec == "off" {
-			fmt.Println("blue light schedule removed")
+			fmt.Println("blue light schedule off")
 		} else {
-			fmt.Printf("blue light on at %s (level %d), off rules follow; reloads within 20 s\n", spec, scheduleLevel)
+			fmt.Printf("blue light follows %s (level %d), applied now\n", spec, scheduleLevel)
 		}
 	}
 	return nil

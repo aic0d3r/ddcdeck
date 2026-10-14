@@ -5,6 +5,7 @@
 package location
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -15,8 +16,8 @@ import (
 // that city's coordinates. Sun times are the same across a whole zone to within a few
 // minutes, so this is a good default until [location] is set precisely.
 var zoneTabPaths = []string{
-	"/usr/share/zoneinfo/zone1970.tab",
 	"/usr/share/zoneinfo/zone.tab",
+	"/usr/share/zoneinfo/zone1970.tab",
 	"/usr/lib/zoneinfo/zone.tab", // Debian layout
 }
 
@@ -148,4 +149,123 @@ func isDigits(s string) bool {
 		}
 	}
 	return true
+}
+
+// Zone is one tzdata line: an IANA zone, its reference city, and coordinates.
+type Zone struct {
+	Zone string  `json:"zone"`
+	City string  `json:"city,omitempty"`
+	Lat  float64 `json:"lat"`
+	Lon  float64 `json:"lon"`
+}
+
+var allZones = func() []Zone {
+	seen := map[string]bool{}
+	var out []Zone
+	for _, p := range zoneTabPaths {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(b), "\n") {
+			// "CC coords zone comments..." (comments may contain spaces; some
+			// distros ship these space-separated rather than tab-separated)
+			if strings.HasPrefix(line, "#") {
+				continue
+			}
+			f := strings.Fields(line)
+			if len(f) < 3 {
+				continue
+			}
+			zone := f[2]
+			if seen[zone] {
+				continue
+			}
+			lat, lon, ok := parseCoord(f[1])
+			if !ok {
+				continue
+			}
+			seen[zone] = true
+			city := ""
+			if len(f) > 3 {
+				city = strings.ReplaceAll(strings.Join(f[3:], " "), "_", " ")
+			}
+			out = append(out, Zone{Zone: zone, City: city, Lat: lat, Lon: lon})
+		}
+	}
+	return out
+}()
+
+// Zones returns every tzdata zone with its reference city — the picker list.
+func Zones() []Zone { return allZones }
+
+// Find resolves free text to a zone: a typed city ("Osaka"), a zone ("Europe/Amsterdam"
+// or just "amst"), or plain "lat lon" numbers. Best match wins; callers show nothing on
+// failure rather than guessing.
+func Find(query string) (Zone, bool) {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" {
+		return Zone{}, false
+	}
+	if lat, lon, ok := parseNumbers(q); ok {
+		return Zone{Zone: q, City: q, Lat: lat, Lon: lon}, true
+	}
+	var best Zone
+	score := 0
+	for _, z := range allZones {
+		city, zone := strings.ToLower(z.City), strings.ToLower(z.Zone)
+		tail := zone[strings.LastIndex(zone, "/")+1:]
+		s := 0
+		switch {
+		case city == q || zone == q || tail == q:
+			s = 6
+		case strings.HasPrefix(city, q) || strings.HasPrefix(tail, q):
+			s = 4
+		case strings.Contains(zone, q) || strings.Contains(city, q):
+			s = 2
+		}
+		// a zone named after its city wins over one that merely mentions the text
+		if s >= 2 && city == tail {
+			s++
+		}
+		if s > score {
+			best, score = z, s
+		}
+	}
+	return best, score > 0
+}
+
+// Name labels coordinates with the nearest zone ("Amsterdam" for Rotterdam), "" when
+// nothing is close enough to claim. Degree-distance with the usual cosine shrink.
+func Name(lat, lon float64) string {
+	best, dist := "", 1.5*1.5
+	for _, z := range allZones {
+		dy := z.Lat - lat
+		dx := (z.Lon - lon) * cosd(lat)
+		if d := dx*dx + dy*dy; d < dist {
+			best, dist = z.Zone, d
+		}
+	}
+	if best == "" {
+		return ""
+	}
+	return best[strings.LastIndex(best, "/")+1:]
+}
+
+func cosd(deg float64) float64 {
+	return math.Cos(deg * math.Pi / 180)
+}
+
+func parseNumbers(s string) (float64, float64, bool) {
+	s = strings.ReplaceAll(s, ",", " ")
+	f := strings.Fields(s)
+	if len(f) != 2 {
+		return 0, 0, false
+	}
+	lat, err1 := strconv.ParseFloat(f[0], 64)
+	lon, err2 := strconv.ParseFloat(f[1], 64)
+	if err1 != nil || err2 != nil || lat < -90 || lat > 90 || lon < -180 || lon > 180 {
+		return 0, 0, false
+	}
+	return lat, lon, true
 }

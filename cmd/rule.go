@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -44,45 +44,43 @@ func init() {
 		},
 	})
 	rule.AddCommand(&cobra.Command{
-		Use:   "location [lat lon]",
+		Use:   "location [city | \"lat lon\"]",
 		Short: "Show or set the location sun rules use",
-		Args: func(_ *cobra.Command, args []string) error {
-			if len(args) != 0 && len(args) != 2 {
-				return fmt.Errorf("give no arguments to show, or both lat and lon")
-			}
-			return nil
-		},
+		Long: "A city is resolved through the system's tzdata (the same source the\n" +
+			"timezone default uses): ddcdeck rule location Tokyo",
+		Args: cobra.MaximumNArgs(2),
 		RunE: func(_ *cobra.Command, a []string) error {
 			if len(a) == 0 {
 				lat, lon := location.Default()
-				var res struct {
+				var list struct {
 					Location Location `json:"location"`
 				}
-				if err := call("rules.list", map[string]any{}, &res); err == nil {
-					lat, lon = res.Location.Lat, res.Location.Lon
+				if err := call("rules.list", map[string]any{}, &list); err == nil {
+					lat, lon = list.Location.Lat, list.Location.Lon
 				}
 				if jsonFlag {
 					return printJSON(map[string]float64{"lat": lat, "lon": lon})
 				}
-				fmt.Printf("%.2f, %.2f\n", lat, lon)
+				name := location.Name(lat, lon)
+				if name != "" {
+					name = " (" + name + ")"
+				}
+				fmt.Printf("%.2f, %.2f%s\n", lat, lon, name)
 				return nil
-			}
-			lat, err := strconv.ParseFloat(a[0], 64)
-			if err == nil {
-				_, err = strconv.ParseFloat(a[1], 64)
-			}
-			if err != nil || lat < -90 || lat > 90 {
-				return fmt.Errorf("expected two numbers: lat (-90..90) lon (-180..180)")
 			}
 			var res struct {
 				Location Location `json:"location"`
+				Name     string   `json:"name"`
 			}
-			lon, _ := strconv.ParseFloat(a[1], 64)
-			if err := call("location.set", map[string]any{"lat": lat, "lon": lon}, &res); err != nil {
+			if err := call("location.set", map[string]any{"query": strings.Join(a, " ")}, &res); err != nil {
 				return err
 			}
 			if !quietFlag {
-				fmt.Printf("location set to %.2f, %.2f\n", res.Location.Lat, res.Location.Lon)
+				msg := fmt.Sprintf("location set to %.2f, %.2f", res.Location.Lat, res.Location.Lon)
+				if res.Name != "" {
+					msg += " — " + res.Name
+				}
+				fmt.Println(msg)
 			}
 			return nil
 		},

@@ -72,8 +72,9 @@ type App struct {
 	rules           *RulesInfo
 	autoSwitch      *adw.SwitchRow
 	autoToggle      *gtk.ToggleButton
-	latRow          *adw.SpinRow
-	lonRow          *adw.SpinRow
+	placeEntry      *gtk.Entry
+	placeRow        *adw.ActionRow
+	zoneStore       *gtk.TreeStore
 	rulesGroup      *adw.PreferencesGroup
 	ruleRows        []*adw.ActionRow
 	shortcutsGroup  *adw.PreferencesGroup

@@ -65,19 +65,27 @@ ddcdeck auto disable | enable        # pause/resume all triggers
 ddcdeck bluelight schedule sunset    # or "21:00-07:00", or off; --level N
 ```
 
+Setting a schedule applies the filter state it implies **now** — midday `sunset` means off,
+not "wait until tomorrow".
+
 A fired rule sends a desktop notification ("Sunset → night") and `ddcdeck rules` shows when
 each rule last ran, so a quiet screen is never mistaken for a broken rule. App rules stay
 silent — they would fire on every window switch.
 
 Rules and profiles are fully editable in either place: the GUI has Add…/trash per rule
 and edit/trash per profile, the CLI has `ddcdeck rule add|rm` and
-`profile save|edit|rm` — the same calls underneath. Sun/time/hotplug rules need no TOML. Until you set a `[location]`, sun times
-use your timezone's reference city — close enough everywhere in the zone.
+`profile save|edit|rm` — the same calls underneath. Sun/time/hotplug rules need no TOML.
+
+Until you set a location, sun times use your timezone's reference city — close enough
+everywhere in the zone. To change it, name a city; it resolves through your system's own
+tzdata (no network, no database of places):
 
 ```sh
 ddcdeck rule add sunset night     # or a time (21:30), connected, disconnected
 ddcdeck rule rm sunset|[night]|   # ids are listed by `ddcdeck rules`
-ddcdeck rule location 52.37 4.90  # for sun rules (defaults to your timezone's city)
+ddcdeck rule location Amsterdam      # a city…
+ddcdeck rule location "52.37 4.90"   # …or exact coordinates
+# in the GUI: Automation → City, with completion over the same tzdata cities
 ```
 
 App rules (KDE only) apply a profile while any of the listed window classes is focused

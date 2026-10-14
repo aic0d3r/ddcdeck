@@ -3,6 +3,7 @@ package gui
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"os/exec"
 	"regexp"
 	"slices"
@@ -572,7 +573,7 @@ func buildDiagnostics(w *window) *adw.PreferencesGroup {
 			for _, c := range cs {
 				row := adw.NewActionRow()
 				row.SetTitle(c.Name)
-				row.SetSubtitle(c.Detail)
+				row.SetSubtitle(html.EscapeString(c.Detail)) // subtitles are parsed as Pango markup
 				icon := map[string]string{"ok": "object-select-symbolic", "warn": "dialog-warning-symbolic"}[c.State]
 				if icon == "" {
 					icon = "dialog-error-symbolic" // fail

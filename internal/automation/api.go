@@ -10,6 +10,7 @@ import (
 
 	"github.com/aic0d3r/ddcdeck/internal/deck"
 	"github.com/aic0d3r/ddcdeck/internal/diag"
+	"github.com/aic0d3r/ddcdeck/internal/location"
 	"github.com/aic0d3r/ddcdeck/internal/model"
 )
 
@@ -212,11 +213,12 @@ func Register(s *deck.Service, e *Engine) {
 			rules = append(rules, ri)
 		}
 		return map[string]any{
-			"auto":        auto,
-			"location":    cfg.Location,
-			"rules":       rules,
-			"shortcuts":   cfg.Shortcut,
-			"unsupported": cfg.Unsupported,
+			"auto":          auto,
+			"location":      cfg.Location,
+			"location_name": location.Name(cfg.Location.Lat, cfg.Location.Lon),
+			"rules":         rules,
+			"shortcuts":     cfg.Shortcut,
+			"unsupported":   cfg.Unsupported,
 		}, nil
 	})
 
@@ -294,11 +296,19 @@ func Register(s *deck.Service, e *Engine) {
 
 	reg("location.set", func(raw json.RawMessage) (any, error) {
 		var p struct {
-			Lat *float64 `json:"lat"`
-			Lon *float64 `json:"lon"`
+			Lat   *float64 `json:"lat"`
+			Lon   *float64 `json:"lon"`
+			Query string   `json:"query"`
 		}
 		if err := decode(raw, &p); err != nil {
 			return nil, err
+		}
+		if p.Query != "" { // "Tokyo" resolves like typing it into any map widget
+			z, ok := location.Find(p.Query)
+			if !ok {
+				return nil, usage("no place named %q — try a city (Amsterdam) or exact lat lon", p.Query)
+			}
+			p.Lat, p.Lon = &z.Lat, &z.Lon
 		}
 		if p.Lat == nil || p.Lon == nil || *p.Lat < -90 || *p.Lat > 90 || *p.Lon < -180 || *p.Lon > 180 {
 			return nil, usage("lat (-90..90) and lon (-180..180) are required")
@@ -316,8 +326,11 @@ func Register(s *deck.Service, e *Engine) {
 		if err := SaveConfig(cfg); err != nil {
 			return nil, &deck.Error{Code: deck.ErrDDC, Message: err.Error()}
 		}
-		return map[string]any{"location": cfg.Location}, nil
+		return map[string]any{"location": cfg.Location, "name": location.Name(cfg.Location.Lat, cfg.Location.Lon)}, nil
 	})
+
+	// the city picker list: every tzdata zone with its reference city, ~400 entries
+	reg("location.zones", func(json.RawMessage) (any, error) { return location.Zones(), nil })
 
 	reg("action.run", func(raw json.RawMessage) (any, error) {
 		var p struct {
@@ -347,7 +360,7 @@ func Register(s *deck.Service, e *Engine) {
 		if p.Level == 0 {
 			p.Level = 20
 		}
-		if err := SetBlueLightSchedule(p.Spec, p.Level); err != nil {
+		if err := SetBlueLightSchedule(e, p.Spec, p.Level); err != nil {
 			return nil, usage("%v", err)
 		}
 		e.reload()
