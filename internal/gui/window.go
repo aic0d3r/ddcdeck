@@ -265,9 +265,11 @@ func buildEyeCare(w *window) *adw.PreferencesGroup {
 		return nil // no filter feature: no schedule to drive
 	}
 	combo := gtk.NewDropDownFromStrings([]string{"Off", "Sunset", "Fixed times"})
+	slim(combo, "flat")
 	combo.SetSelected(0)
 	setA11yLabel(combo, "Blue light schedule")
 	time := gtk.NewEntry()
+	slim(time, "compact")
 	time.SetPlaceholderText("21:00-07:00")
 	setA11yLabel(time, "On and off times")
 	timeRow := adw.NewActionRow()
@@ -276,9 +278,10 @@ func buildEyeCare(w *window) *adw.PreferencesGroup {
 	timeRow.SetVisible(false)
 	combo.Connect("notify::selected", func() { timeRow.SetVisible(combo.Selected() == 2) })
 
-	level := gtk.NewSpinButtonWithRange(0, 20, 1)
+	level := adw.NewSpinRowWithRange(0, 20, 1)
+	level.SetTitle("Level when scheduled")
+	level.SetDigits(0)
 	level.SetValue(20)
-	setA11yLabel(level, "Filter strength when on")
 
 	// Set only becomes clickable once the controls differ from what is saved: it
 	// rewrites the rule file, so an idle blue button begging a stray click is a trap
@@ -290,6 +293,7 @@ func buildEyeCare(w *window) *adw.PreferencesGroup {
 		return sp
 	}
 	save := gtk.NewButtonWithLabel("Set")
+	slim(save, "compact")
 	save.AddCSSClass("suggested-action")
 	save.SetVAlign(gtk.AlignCenter)
 	save.SetSensitive(false)
@@ -300,7 +304,7 @@ func buildEyeCare(w *window) *adw.PreferencesGroup {
 	}
 	combo.Connect("notify::selected", refresh)
 	time.Connect("changed", refresh)
-	level.ConnectValueChanged(refresh)
+	level.Connect("notify::value", refresh)
 
 	save.ConnectClicked(func() {
 		sp := spec()
@@ -326,12 +330,9 @@ func buildEyeCare(w *window) *adw.PreferencesGroup {
 	row.AddSuffix(sched)
 	row.SetActivatableWidget(combo)
 
-	lvlRow := adw.NewActionRow()
-	lvlRow.SetTitle("Level when scheduled")
-	lvlRow.AddSuffix(level)
 	g.Add(row)
 	g.Add(timeRow)
-	g.Add(lvlRow)
+	g.Add(level)
 
 	// reflect what is configured: the schedule rules and the level profile
 	var res RulesInfo
@@ -452,6 +453,7 @@ func buildSettings(w *window) *adw.PreferencesPage {
 		return m.ID
 	}
 	useBtn := gtk.NewButtonWithLabel("Use this monitor")
+	useBtn.AddCSSClass("compact")
 	useBtn.SetVAlign(gtk.AlignCenter)
 	showDefault := func() {
 		pinned := deck.DefaultDisplay()
@@ -502,6 +504,7 @@ func buildSettings(w *window) *adw.PreferencesPage {
 		r.SetSubtitle("Standard features only — fetch one from the database, or discover the rest below")
 		id := fmt.Sprintf("%s-%s-%d", m.Mfg, m.Model, m.Product)
 		fetch := gtk.NewButtonWithLabel("Fetch…")
+		fetch.AddCSSClass("compact")
 		fetch.SetVAlign(gtk.AlignCenter)
 		fetch.SetTooltipText("Look up this model in the community database (one file, opt-in)")
 		fetch.ConnectClicked(func() {
@@ -527,6 +530,7 @@ func buildSettings(w *window) *adw.PreferencesPage {
 	disco.SetTitle("Map more features")
 	disco.SetSubtitle("Change a setting in the monitor's menu; DDC Deck finds the code behind it.")
 	start := gtk.NewButtonWithLabel("Discover…")
+	start.AddCSSClass("compact")
 	start.SetTooltipText("Guided discovery of vendor VCP codes by diffing OSD changes")
 	start.SetVAlign(gtk.AlignCenter)
 	start.ConnectClicked(func() { a.openWizard() })

@@ -200,6 +200,7 @@ func (w *guiWizard) phaseName() {
 	entry.SetPlaceholderText("e.g. bluelight")
 	setA11yLabel(entry, "Feature name")
 	quick := gtk.NewDropDownFromStrings(suggestions)
+	slim(quick, "flat")
 	quick.SetTooltipText("Fill in a suggestion")
 	quick.Connect("notify::selected", func() {
 		if i := int(quick.Selected()); i < len(suggestions) {

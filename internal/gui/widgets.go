@@ -223,3 +223,12 @@ func group(a *App, b *binder, heading string, features ...string) *adw.Preferenc
 	}
 	return g
 }
+
+// slim marks a control in a row suffix with the compact row styling Adwaita's own
+// row widgets use — default dropbuttons and spinbuttons are much chunkier than the
+// rows they sit in.
+func slim(w interface{ AddCSSClass(string) }, classes ...string) {
+	for _, c := range classes {
+		w.AddCSSClass(c)
+	}
+}

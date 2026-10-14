@@ -34,6 +34,14 @@ window.ddcdeck-panel { background: transparent; }
 /* fixed slider widths keep the tracks aligned across rows */
 .ddcdeck-main scale { min-width: 260px; }
 .ddcdeck-panel scale { min-width: 170px; }
+/* row-suffix controls: Adwaita's 34px touch floor is oversized inside preference
+   rows at HiDPI; .compact-tagged controls get the row density instead */
+window.ddcdeck-main button.compact { min-height: 0; padding: 4px 14px; }
+window.ddcdeck-main entry.compact { min-height: 0; padding: 5px 10px; }
+window.ddcdeck-main spinbutton.compact { min-height: 0; }
+window.ddcdeck-main spinbutton.compact entry { min-height: 0; padding: 2px 8px; }
+window.ddcdeck-main spinbutton.compact button { min-height: 0; padding: 0 10px; }
+window.ddcdeck-main dropdown.flat > button { min-height: 0; padding: 4px 8px; }
 `
 
 // AppID is the GApplication / desktop file id.
