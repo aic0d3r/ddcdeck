@@ -53,6 +53,8 @@ type window struct {
 	picker    *gtk.DropDown
 	pickerH   coreglib.SignalHandle // handler id, blocked while the model is replaced
 	banner    *adw.Banner
+	bannerFor string // monitor ID the banner text was last set for (a new monitor starts at the lookup offer)
+	notFound  bool   // lookup came back empty: the banner now offers discovery
 	profGroup *adw.PreferencesGroup
 	profRows  []*adw.ActionRow
 	binder    *binder
@@ -116,9 +118,8 @@ func newWindow(a *App) *window {
 	w.status = adw.NewStatusPage()
 	w.status.SetIconName("video-display-symbolic")
 	w.stack.AddNamed(w.status, "status")
-	w.banner = adw.NewBanner("This monitor works, but its special features need one guided pass")
-	w.banner.SetButtonLabel("Discover features…")
-	w.banner.ConnectButtonClicked(func() { a.openWizard() })
+	w.banner = adw.NewBanner("")
+	w.banner.ConnectButtonClicked(w.bannerAction)
 	content := gtk.NewBox(gtk.OrientationVertical, 0)
 	content.Append(w.banner)
 	content.Append(w.stack)
@@ -141,6 +142,51 @@ func newWindow(a *App) *window {
 
 	w.showStatus("Connecting…", "")
 	return w
+}
+
+// setBanner words the no-model-file banner: first a lookup in the community database (the
+// likely fix, one click), and only when that comes back empty the guided discovery.
+func (w *window) setBanner() {
+	if w.notFound {
+		w.banner.SetTitle("Not in the community database yet. Map its features yourself, then share them.")
+		w.banner.SetButtonLabel("Discover features…")
+		w.banner.SetTooltipText("")
+		return
+	}
+	w.banner.SetTitle("Standard features only. The community database may have more for this monitor.")
+	w.banner.SetButtonLabel("Look up")
+	if m := w.a.cur; m != nil { // say exactly what leaves the machine
+		w.banner.SetTooltipText(fmt.Sprintf("Sends only the model ID (%s-%s-%d) to github.com. Nothing else.", m.Mfg, m.Model, m.Product))
+	}
+}
+
+func (w *window) bannerAction() {
+	a := w.a
+	if w.notFound {
+		a.openWizard()
+		return
+	}
+	m := a.cur
+	if m == nil {
+		return
+	}
+	w.banner.SetSensitive(false) // in flight: no second click, layout stays put
+	w.banner.SetTitle("Looking up " + m.Model + "…")
+	a.call("model.fetch", map[string]any{"id": fmt.Sprintf("%s-%s-%d", m.Mfg, m.Model, m.Product)}, nil, func(err error) {
+		w.banner.SetSensitive(true)
+		switch {
+		case err == nil:
+			a.toast("Model file loaded")
+			var res deck.ListResult
+			a.call("list", deck.Params{}, &res, func(error) { a.setMonitors(res.Monitors) })
+		case strings.Contains(err.Error(), "no community model file"): // Fetch's 404 message
+			w.notFound = true
+			w.setBanner()
+		default: // offline, rate limited, bad file: the offer stays so the user can retry
+			a.toast(err.Error())
+			w.setBanner()
+		}
+	})
 }
 
 func (w *window) showStatus(title, detail string) {
@@ -196,6 +242,10 @@ func (w *window) rebuild() {
 	w.picker.HandlerUnblock(w.pickerH)
 	w.picker.SetVisible(true)
 	w.sidebar.SetSensitive(true)
+	if w.bannerFor != a.cur.ID {
+		w.bannerFor, w.notFound = a.cur.ID, false
+	}
+	w.setBanner()
 	w.banner.SetRevealed(!a.cur.HasModel && w.stack.VisibleChildName() != "settings")
 
 	if visible == "status" || w.stack.ChildByName(visible) == nil {

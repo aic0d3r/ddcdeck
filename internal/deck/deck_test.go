@@ -25,7 +25,7 @@ func (f *fake) Detect() ([]ddc.Display, error) {
 	return []ddc.Display{{Bus: 21, Connector: "DP-8", Monitor: "AUS:PA279CRV:TALMSB010776"}}, nil
 }
 func (f *fake) Capabilities(int) (ddc.Caps, error) {
-	return ddc.Caps{0x10: nil, 0x60: {0x0f, 0x11, 0x1a}, 0xE6: nil}, nil
+	return ddc.Caps{0x10: nil, 0x60: {0x0f, 0x11, 0x1a}, 0xE3: nil, 0xE6: nil}, nil
 }
 func (f *fake) Get(_ int, codes ...byte) (map[byte]ddc.Value, error) {
 	f.mu.Lock()
@@ -63,7 +63,7 @@ func newTest(t *testing.T) (*Service, *fake) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := &fake{vals: map[byte]ddc.Value{0x10: {Cur: 40, Max: 100}, 0x60: {Cur: 0x1a}, 0xE6: {Cur: 0, Max: 20}}}
+	f := &fake{vals: map[byte]ddc.Value{0x10: {Cur: 40, Max: 100}, 0x60: {Cur: 0x1a}, 0xE6: {Cur: 0, Max: 20}, 0xE3: {Cur: 0x1ff}}}
 	s := New(f, models)
 	s.drmDir = t.TempDir() // no EDID: exercises the ddcutil fallback
 	if _, err := s.Scan(); err != nil {
