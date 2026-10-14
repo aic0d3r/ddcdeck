@@ -16,3 +16,9 @@ vcp      = 0x60
 type     = "enum"
 values   = { dp = 0x0f, hdmi1 = 0x11, hdmi2 = 0x12, usbc = 0x1a }  # usbc unverified
 verified = false
+
+[feature.preset]
+vcp      = 0xE3
+type     = "enum"
+values   = { native = 0x1ff, srgb = 0x5ff }  # 16-bit values (high byte = ProArt mode); more modes not mapped yet
+verified = true

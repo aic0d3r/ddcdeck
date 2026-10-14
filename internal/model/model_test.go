@@ -31,6 +31,9 @@ func TestLoadAndResolvePA279CRV(t *testing.T) {
 	if b := fs["bluelight"]; b.VCP != 0xE6 || b.Off == nil || *b.Off != 0 || b.Max != 20 {
 		t.Errorf("bluelight = %+v", b)
 	}
+	if p := fs["preset"]; p.VCP != 0xE3 || p.Values["srgb"] != 0x5ff {
+		t.Errorf("preset = %+v", p)
+	}
 	if Defaults()["colortemp"].Values["srgb"] == 0 {
 		t.Error("Resolve must not mutate Defaults")
 	}
