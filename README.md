@@ -178,3 +178,8 @@ Model files: bundled ones live in `data/models/`; drop your own in
 cp data/mccs/*.mccs ~/.local/share/ddcutil/
 ddcutil getvcp E6   # → "Blue Light Filter" on an ASUS PA279CRV
 ```
+
+## License and contributing
+
+GPL-3.0-only, see [LICENSE](LICENSE). Contributions require agreeing to the
+[CLA](CLA.md), which lets the maintainer also ship the code in proprietary builds.

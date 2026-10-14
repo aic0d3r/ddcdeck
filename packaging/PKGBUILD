@@ -9,7 +9,7 @@ pkgrel=1
 pkgdesc="Monitor control over DDC/CI in the style of ASUS DisplayWidget Center"
 arch=('x86_64' 'aarch64')
 url="https://github.com/aic0d3r/ddcdeck"
-license=('Apache')
+license=('GPL-3.0-only')
 makedepends=('go')
 source=("git+${url}.git#tag=v${pkgver}")
 sha256sums=('SKIP')
