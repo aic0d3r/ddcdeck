@@ -103,7 +103,7 @@ func newWindow(a *App) *window {
 	w.profHead = gtk.NewLabel("Quick profiles")
 	w.profHead.AddCSSClass("heading")
 	w.profHead.SetXAlign(0)
-	w.profHead.SetMarginStart(11) // lines up with the row labels below
+	w.profHead.SetMarginStart(16) // lines up with the row labels below
 	w.profHead.SetMarginTop(18)
 	w.profHead.SetMarginBottom(6)
 	w.profList = gtk.NewListBox()
