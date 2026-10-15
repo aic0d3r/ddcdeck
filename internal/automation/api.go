@@ -249,11 +249,12 @@ func Register(s *deck.Service, e *Engine) {
 			When    string   `json:"when"`
 			Apply   []string `json:"apply"`
 			Display string   `json:"display,omitempty"`
+			ID      string   `json:"id,omitempty"` // optional owner tag, so a UI can find its rule again
 		}
 		if err := decode(raw, &p); err != nil {
 			return nil, err
 		}
-		r := Rule{When: p.When, Apply: p.Apply, Display: p.Display}
+		r := Rule{ID: p.ID, When: p.When, Apply: p.Apply, Display: p.Display}
 		if r.When == "app" {
 			return nil, usage("app rules need a class list: edit rules.toml to add one")
 		}

@@ -79,81 +79,173 @@ func (w *window) rebuildProfiles() {
 			} `json:"monitors"`
 		} `json:"profiles"`
 	}
-	w.a.call("profile.list", map[string]any{}, &res, func(err error) {
-		if err != nil {
-			w.a.toast(err.Error())
-			return
-		}
-		if len(res.Profiles) == 0 {
-			r := placeholderRow("No profiles yet", "Save this monitor's settings with “Save current as…”, or start from two examples.")
-			add := gtk.NewButtonWithLabel(i18n.T("Add starters"))
-			add.SetVAlign(gtk.AlignCenter)
-			add.SetTooltipText(i18n.T("Bright (brightness 80) and Night (brightness 15, blue light filter on). Monitors without a feature skip it."))
-			add.ConnectClicked(func() { w.addStarterProfiles(add) })
-			r.AddSuffix(add)
-			w.profRows = append(w.profRows, r)
-			g.Add(r)
-			return
-		}
-		for _, p := range res.Profiles {
-			p := p
-			var parts []string
-			for _, s := range p.Monitors {
-				who := s.Match
-				if who == "*" {
-					who = "Every monitor"
-				}
-				parts = append(parts, fmt.Sprintf("%s: %s", who, strings.Join(keysOf(s.Fields), ", ")))
+	var rules RulesInfo
+	// rules first (best effort: a failure just shows no schedules), so the rows can show them
+	w.a.call("rules.list", map[string]any{}, &rules, func(error) {
+		w.a.call("profile.list", map[string]any{}, &res, func(err error) {
+			if err != nil {
+				w.a.toast(err.Error())
+				return
 			}
-			row := adw.NewActionRow()
-			row.SetTitle(p.Name)
-			row.SetSubtitle(strings.Join(parts, " · "))
-			btn := gtk.NewButtonWithLabel(i18n.T("Apply"))
-			btn.SetVAlign(gtk.AlignCenter)
-			btn.ConnectClicked(func() {
-				w.a.call("profile.apply", map[string]any{"profiles": []string{p.Name}}, nil, func(err error) {
-					if err == nil {
-						w.a.toast(i18n.T("Applied ") + p.Name)
-					} else {
-						w.a.toast(err.Error())
+			if len(res.Profiles) == 0 {
+				r := placeholderRow("No profiles yet", "Save this monitor's settings with “Save current as…”, or start from two examples.")
+				add := gtk.NewButtonWithLabel(i18n.T("Add starters"))
+				add.SetVAlign(gtk.AlignCenter)
+				add.SetTooltipText(i18n.T("Bright (brightness 80) and Night (brightness 15, blue light filter on). Monitors without a feature skip it."))
+				add.ConnectClicked(func() { w.addStarterProfiles(add) })
+				r.AddSuffix(add)
+				w.profRows = append(w.profRows, r)
+				g.Add(r)
+				return
+			}
+			for _, p := range res.Profiles {
+				p := p
+				var parts []string
+				for _, s := range p.Monitors {
+					who := s.Match
+					if who == "*" {
+						who = "Every monitor"
 					}
-				})
-			})
-			edit := gtk.NewButtonFromIconName("document-edit-symbolic")
-			edit.SetVAlign(gtk.AlignCenter)
-			edit.SetTooltipText(i18n.T("Edit this profile"))
-			edit.ConnectClicked(func() { w.editProfileDialog(profileFromList(p)) })
-			del := gtk.NewButtonFromIconName("user-trash-symbolic")
-			del.SetVAlign(gtk.AlignCenter)
-			del.SetTooltipText(i18n.T("Remove this profile"))
-			del.ConnectClicked(func() {
-				confirm := adw.NewAlertDialog("Remove "+p.Name+"?", "The stored settings are deleted. The monitor keeps its current values.")
-				confirm.AddResponse("cancel", i18n.T("Cancel"))
-				confirm.AddResponse("remove", i18n.T("Remove"))
-				confirm.SetResponseAppearance("remove", adw.ResponseDestructive)
-				confirm.SetDefaultResponse("cancel")
-				confirm.ConnectResponse(func(answer string) {
-					if answer != "remove" {
-						return
-					}
-					w.a.call("profile.rm", map[string]any{"name": p.Name}, nil, func(err error) {
-						if err != nil {
+					parts = append(parts, fmt.Sprintf("%s: %s", who, strings.Join(keysOf(s.Fields), ", ")))
+				}
+				row := adw.NewActionRow()
+				row.SetTitle(p.Name)
+				row.SetSubtitle(strings.Join(parts, " · "))
+				btn := gtk.NewButtonWithLabel(i18n.T("Apply"))
+				btn.SetVAlign(gtk.AlignCenter)
+				btn.ConnectClicked(func() {
+					w.a.call("profile.apply", map[string]any{"profiles": []string{p.Name}}, nil, func(err error) {
+						if err == nil {
+							w.a.toast(i18n.T("Applied ") + p.Name)
+						} else {
 							w.a.toast(err.Error())
-							return
 						}
-						w.a.toast(i18n.T("Removed ") + p.Name)
-						w.rebuildProfiles()
 					})
 				})
-				confirm.Present(&w.win.Window)
-			})
-			row.AddSuffix(edit)
-			row.AddSuffix(del)
-			row.AddSuffix(btn)
-			w.profRows = append(w.profRows, row)
-			g.Add(row)
-		}
+				edit := gtk.NewButtonFromIconName("document-edit-symbolic")
+				edit.SetVAlign(gtk.AlignCenter)
+				edit.SetTooltipText(i18n.T("Edit this profile"))
+				edit.ConnectClicked(func() { w.editProfileDialog(profileFromList(p)) })
+				del := gtk.NewButtonFromIconName("user-trash-symbolic")
+				del.SetVAlign(gtk.AlignCenter)
+				del.SetTooltipText(i18n.T("Remove this profile"))
+				del.ConnectClicked(func() {
+					confirm := adw.NewAlertDialog("Remove "+p.Name+"?", "The stored settings are deleted. The monitor keeps its current values.")
+					confirm.AddResponse("cancel", i18n.T("Cancel"))
+					confirm.AddResponse("remove", i18n.T("Remove"))
+					confirm.SetResponseAppearance("remove", adw.ResponseDestructive)
+					confirm.SetDefaultResponse("cancel")
+					confirm.ConnectResponse(func(answer string) {
+						if answer != "remove" {
+							return
+						}
+						w.a.call("profile.rm", map[string]any{"name": p.Name}, nil, func(err error) {
+							if err != nil {
+								w.a.toast(err.Error())
+								return
+							}
+							w.a.call("rule.rm", map[string]any{"id": profileScheduleID(p.Name)}, nil, nil) // its schedule goes too; none is fine
+							w.a.toast(i18n.T("Removed ") + p.Name)
+							w.rebuildProfiles()
+						})
+					})
+					confirm.Present(&w.win.Window)
+				})
+				row.AddSuffix(w.profileSchedule(p.Name, rules.Rules))
+				row.AddSuffix(edit)
+				row.AddSuffix(del)
+				row.AddSuffix(btn)
+				w.profRows = append(w.profRows, row)
+				g.Add(row)
+			}
+		})
 	})
+}
+
+// profileScheduleID tags the rule a profile's schedule control owns.
+func profileScheduleID(name string) string { return "profile-schedule:" + name }
+
+// profileSchedule: "apply this profile at sunset / sunrise / a fixed time", the profile
+// twin of the Eye care schedule. Set replaces the profile's previous schedule rule.
+func (w *window) profileSchedule(name string, rules []RuleInfo) *gtk.Box {
+	combo := gtk.NewDropDownFromStrings([]string{"No schedule", "Sunset", "Sunrise", "Fixed time"})
+	slim(combo, "flat")
+	setA11yLabel(combo, "Schedule for "+name)
+	entry := gtk.NewEntry()
+	entry.SetPlaceholderText("21:00")
+	entry.SetWidthChars(5)
+	entry.SetMaxWidthChars(5)
+	entry.SetVAlign(gtk.AlignCenter)
+	setA11yLabel(entry, "Time to apply "+name)
+	entry.SetVisible(false)
+	save := gtk.NewButtonWithLabel(i18n.T("Set"))
+	save.AddCSSClass("suggested-action")
+	save.SetVAlign(gtk.AlignCenter)
+	save.SetSensitive(false)
+	save.SetTooltipText(i18n.T("Replaces this profile's previous schedule"))
+
+	when := func() string {
+		switch combo.Selected() {
+		case 1:
+			return "sunset"
+		case 2:
+			return "sunrise"
+		case 3:
+			return strings.TrimSpace(entry.Text())
+		}
+		return ""
+	}
+	base := ""
+	for _, r := range rules {
+		if r.ID != profileScheduleID(name) {
+			continue
+		}
+		base = r.When
+		switch r.When {
+		case "sunset":
+			combo.SetSelected(1)
+		case "sunrise":
+			combo.SetSelected(2)
+		default:
+			combo.SetSelected(3)
+			entry.SetText(r.When)
+		}
+		entry.SetVisible(combo.Selected() == 3)
+	}
+	refresh := func() { save.SetSensitive(when() != base) }
+	combo.Connect("notify::selected", func() { entry.SetVisible(combo.Selected() == 3); refresh() })
+	entry.Connect("changed", refresh)
+
+	save.ConnectClicked(func() {
+		wh := when()
+		id := profileScheduleID(name)
+		add := func() {
+			if wh == "" {
+				base = ""
+				refresh()
+				w.a.toast(i18n.T("Schedule removed for ") + name)
+				return
+			}
+			w.a.call("rule.add", map[string]any{"id": id, "when": wh, "apply": []string{name}}, nil, func(err error) {
+				if err != nil {
+					w.a.toast(err.Error())
+					return
+				}
+				base = wh
+				refresh()
+				w.a.toast(name + i18n.T(" will apply at ") + wh)
+			})
+		}
+		// drop the old rule first; "no rule" is the normal first-time answer, so ignore it
+		w.a.call("rule.rm", map[string]any{"id": id}, nil, func(error) { add() })
+	})
+
+	box := gtk.NewBox(gtk.OrientationHorizontal, 6)
+	box.SetVAlign(gtk.AlignCenter)
+	box.Append(combo)
+	box.Append(entry)
+	box.Append(save)
+	return box
 }
 
 // addStarterProfiles writes two conservative examples for every monitor; unsupported fields are skipped on apply.
