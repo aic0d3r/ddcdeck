@@ -16,6 +16,7 @@ import (
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
 	coreglib "github.com/diamondburned/gotk4/pkg/core/glib"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
+	"github.com/diamondburned/gotk4/pkg/pango"
 
 	"github.com/aic0d3r/ddcdeck/internal/ddc"
 	"github.com/aic0d3r/ddcdeck/internal/deck"
@@ -58,8 +59,9 @@ type window struct {
 	notFound  bool   // lookup came back empty: the banner now offers discovery
 	profGroup *adw.PreferencesGroup
 	profRows  []*adw.ActionRow
-	presets   *adw.PreferencesGroup // Display tab: one-tap profiles
-	presetBox *gtk.FlowBox
+	profList  *gtk.ListBox // sidebar: one-tap profiles
+	profHead  *gtk.Label
+	sideBox   *gtk.Box
 	binder    *binder
 }
 
@@ -98,9 +100,26 @@ func newWindow(a *App) *window {
 			w.show(row.Name())
 		}
 	})
+	w.profHead = gtk.NewLabel("Quick profiles")
+	w.profHead.AddCSSClass("heading")
+	w.profHead.SetXAlign(0)
+	w.profHead.SetMarginStart(11) // lines up with the row labels below
+	w.profHead.SetMarginTop(18)
+	w.profHead.SetMarginBottom(6)
+	w.profList = gtk.NewListBox()
+	w.profList.AddCSSClass("navigation-sidebar")
+	w.profList.SetSelectionMode(gtk.SelectionNone)
+	w.profList.SetActivateOnSingleClick(true)
+	w.profList.ConnectRowActivated(func(row *gtk.ListBoxRow) { a.applyProfile(row.Name()) })
+	w.profHead.SetVisible(false)
+	w.profList.SetVisible(false)
+	w.sideBox = gtk.NewBox(gtk.OrientationVertical, 0)
+	w.sideBox.Append(w.sidebar)
+	w.sideBox.Append(w.profHead)
+	w.sideBox.Append(w.profList)
 	sideTV := adw.NewToolbarView()
 	sideTV.AddTopBar(adw.NewHeaderBar())
-	sideTV.SetContent(w.sidebar)
+	sideTV.SetContent(w.sideBox)
 	sidePage := adw.NewNavigationPage(sideTV, "DDC Deck")
 
 	// content
@@ -206,7 +225,7 @@ func (w *window) showStatus(title, detail string) {
 	w.status.SetTitle(title)
 	w.status.SetDescription(detail)
 	w.stack.SetVisibleChildName("status")
-	w.sidebar.SetSensitive(false)
+	w.sideBox.SetSensitive(false)
 	w.picker.SetVisible(false)
 	w.content.SetTitle("DDC Deck")
 }
@@ -253,11 +272,12 @@ func (w *window) rebuild() {
 	w.picker.SetSelected(uint(sel))
 	w.picker.HandlerUnblock(w.pickerH)
 	w.picker.SetVisible(true)
-	w.sidebar.SetSensitive(true)
+	w.sideBox.SetSensitive(true)
 	if w.bannerFor != a.cur.ID {
 		w.bannerFor, w.notFound = a.cur.ID, false
 	}
 	w.setBanner()
+	w.refreshPresets()
 	w.banner.SetRevealed(!a.cur.HasModel && !isInfoPage(w.stack.VisibleChildName()))
 
 	if visible == "status" || w.stack.ChildByName(visible) == nil {
@@ -318,66 +338,71 @@ func buildDisplay(w *window) *adw.PreferencesPage {
 // buildQuick: one-tap profiles and, with several monitors, the link switch.
 func buildQuick(w *window) *adw.PreferencesGroup {
 	a := w.a
-	g := adw.NewPreferencesGroup()
-	g.SetTitle("Quick profiles")
-	w.presetBox = gtk.NewFlowBox()
-	w.presetBox.SetSelectionMode(gtk.SelectionNone)
-	w.presetBox.SetHomogeneous(false)
-	w.presetBox.SetMaxChildrenPerLine(6)
-	g.Add(w.presetBox)
-	w.presets = g
-	if len(a.mons) > 1 {
-		link := adw.NewSwitchRow()
-		link.SetTitle("Link all monitors")
-		link.SetSubtitle("Brightness, contrast and volume sliders move every monitor together")
-		link.SetActive(a.prefs.LinkMonitors)
-		link.NotifyProperty("active", func() {
-			a.prefs.LinkMonitors = link.Active()
-			a.savePrefs()
-		})
-		g.Add(link)
+	if len(a.mons) < 2 {
+		return nil
 	}
-	w.refreshPresets()
+	g := adw.NewPreferencesGroup()
+	g.SetTitle("Monitors")
+	link := adw.NewSwitchRow()
+	link.SetTitle("Link all monitors")
+	link.SetSubtitle("Brightness, contrast and volume sliders move every monitor together")
+	link.SetActive(a.prefs.LinkMonitors)
+	link.NotifyProperty("active", func() {
+		a.prefs.LinkMonitors = link.Active()
+		a.savePrefs()
+	})
+	g.Add(link)
 	return g
 }
 
-// refreshPresets re-reads the saved profiles into the Display tab's chips; no profiles, no chips.
-func (w *window) refreshPresets() {
-	box := w.presetBox
-	if box == nil {
-		return
-	}
-	a := w.a
+// profileNames reads the saved profile names.
+func (a *App) profileNames(done func([]string)) {
 	var res struct {
 		Profiles []struct {
 			Name string `json:"name"`
 		} `json:"profiles"`
 	}
 	a.call("profile.list", map[string]any{}, &res, func(err error) {
-		if err != nil || w.presetBox != box {
+		if err != nil {
 			return
 		}
-		for c := box.FirstChild(); c != nil; c = box.FirstChild() {
-			box.Remove(c)
+		names := make([]string, len(res.Profiles))
+		for i, p := range res.Profiles {
+			names[i] = p.Name
 		}
-		for _, p := range res.Profiles {
-			btn := gtk.NewButtonWithLabel(p.Name)
-			btn.ConnectClicked(func() {
-				a.call("profile.apply", map[string]any{"profiles": []string{p.Name}}, nil, func(err error) {
-					if err != nil {
-						a.toast(err.Error())
-						return
-					}
-					a.toast("Applied " + p.Name)
-					a.refreshFresh()
-				})
-			})
-			box.Append(btn)
+		done(names)
+	})
+}
+
+func (a *App) applyProfile(name string) {
+	a.call("profile.apply", map[string]any{"profiles": []string{name}}, nil, func(err error) {
+		if err != nil {
+			a.toast(err.Error())
+			return
 		}
-		box.SetVisible(len(res.Profiles) > 0)
-		if len(a.mons) <= 1 {
-			w.presets.SetVisible(len(res.Profiles) > 0)
+		a.toast("Applied " + name)
+		a.refreshFresh()
+	})
+}
+
+// refreshPresets re-reads the saved profiles into the Display tab's chips; no profiles, no chips.
+func (w *window) refreshPresets() {
+	w.a.profileNames(func(names []string) {
+		for c := w.profList.FirstChild(); c != nil; c = w.profList.FirstChild() {
+			w.profList.Remove(c)
 		}
+		for _, n := range names {
+			l := gtk.NewLabel(n)
+			l.SetXAlign(0)
+			l.SetEllipsize(pango.EllipsizeEnd)
+			row := gtk.NewListBoxRow()
+			row.SetChild(l)
+			row.SetName(n)
+			row.SetTooltipText("Apply " + n)
+			w.profList.Append(row)
+		}
+		w.profHead.SetVisible(len(names) > 0)
+		w.profList.SetVisible(len(names) > 0)
 	})
 }
 

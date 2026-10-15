@@ -91,6 +91,23 @@ func newPanel(a *App, x, y int) *panel {
 		}
 	}
 	box.Append(list)
+	chips := gtk.NewFlowBox()
+	chips.SetSelectionMode(gtk.SelectionNone)
+	chips.SetMaxChildrenPerLine(4)
+	chips.SetHomogeneous(false)
+	chips.SetVisible(false)
+	box.Append(chips)
+	a.profileNames(func(names []string) {
+		if p.closed {
+			return
+		}
+		for _, n := range names {
+			btn := gtk.NewButtonWithLabel(n)
+			btn.ConnectClicked(func() { a.applyProfile(n) })
+			chips.Append(btn)
+		}
+		chips.SetVisible(len(names) > 0)
+	})
 	p.win.SetChild(box)
 	a.addBinder(p.binder)
 	for _, fv := range a.vals { // show cached values immediately; refresh follows
