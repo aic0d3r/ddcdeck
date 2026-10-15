@@ -58,6 +58,8 @@ type window struct {
 	notFound  bool   // lookup came back empty: the banner now offers discovery
 	profGroup *adw.PreferencesGroup
 	profRows  []*adw.ActionRow
+	presets   *adw.PreferencesGroup // Display tab: one-tap profiles
+	presetBox *gtk.FlowBox
 	binder    *binder
 }
 
@@ -67,7 +69,13 @@ func newWindow(a *App) *window {
 	w.win.SetTitle("DDC Deck")
 	w.win.AddCSSClass("ddcdeck-main")
 	w.win.SetDefaultSize(820, 600)
-	w.win.SetHideOnClose(true) // close = back to the tray
+	w.win.SetHideOnClose(true) // close = back to the tray, unless the user chose otherwise
+	w.win.ConnectCloseRequest(func() bool {
+		if a.prefs.QuitOnClose {
+			a.quit()
+		}
+		return false
+	})
 	w.win.ConnectShow(a.refresh)
 
 	// sidebar
@@ -297,6 +305,7 @@ func buildDisplay(w *window) *adw.PreferencesPage {
 	}
 	slices.Sort(more)
 	return prefsPage(
+		buildQuick(w),
 		group(a, b, "Picture", "brightness", "contrast", "sharpness"),
 		group(a, b, "Color", "preset", "colortemp"),
 		buildEyeCare(w),
@@ -304,6 +313,72 @@ func buildDisplay(w *window) *adw.PreferencesPage {
 		group(a, b, "Power", "power"),
 		group(a, b, "More", more...),
 	)
+}
+
+// buildQuick: one-tap profiles and, with several monitors, the link switch.
+func buildQuick(w *window) *adw.PreferencesGroup {
+	a := w.a
+	g := adw.NewPreferencesGroup()
+	g.SetTitle("Quick profiles")
+	w.presetBox = gtk.NewFlowBox()
+	w.presetBox.SetSelectionMode(gtk.SelectionNone)
+	w.presetBox.SetHomogeneous(false)
+	w.presetBox.SetMaxChildrenPerLine(6)
+	g.Add(w.presetBox)
+	w.presets = g
+	if len(a.mons) > 1 {
+		link := adw.NewSwitchRow()
+		link.SetTitle("Link all monitors")
+		link.SetSubtitle("Brightness, contrast and volume sliders move every monitor together")
+		link.SetActive(a.prefs.LinkMonitors)
+		link.NotifyProperty("active", func() {
+			a.prefs.LinkMonitors = link.Active()
+			a.savePrefs()
+		})
+		g.Add(link)
+	}
+	w.refreshPresets()
+	return g
+}
+
+// refreshPresets re-reads the saved profiles into the Display tab's chips; no profiles, no chips.
+func (w *window) refreshPresets() {
+	box := w.presetBox
+	if box == nil {
+		return
+	}
+	a := w.a
+	var res struct {
+		Profiles []struct {
+			Name string `json:"name"`
+		} `json:"profiles"`
+	}
+	a.call("profile.list", map[string]any{}, &res, func(err error) {
+		if err != nil || w.presetBox != box {
+			return
+		}
+		for c := box.FirstChild(); c != nil; c = box.FirstChild() {
+			box.Remove(c)
+		}
+		for _, p := range res.Profiles {
+			btn := gtk.NewButtonWithLabel(p.Name)
+			btn.ConnectClicked(func() {
+				a.call("profile.apply", map[string]any{"profiles": []string{p.Name}}, nil, func(err error) {
+					if err != nil {
+						a.toast(err.Error())
+						return
+					}
+					a.toast("Applied " + p.Name)
+					a.refreshFresh()
+				})
+			})
+			box.Append(btn)
+		}
+		box.SetVisible(len(res.Profiles) > 0)
+		if len(a.mons) <= 1 {
+			w.presets.SetVisible(len(res.Profiles) > 0)
+		}
+	})
 }
 
 // bluelightScheduleID is the rule id `ddcdeck bluelight schedule` (and the GUI's
@@ -433,6 +508,7 @@ func buildEyeCare(w *window) *adw.PreferencesGroup {
 }
 
 // buildInput shows inputs as radio rows (one click, current one checked) plus KVM.
+// Each row can carry your own name ("Gaming PC") and a global hotkey for jumping to it.
 func buildInput(w *window) *adw.PreferencesPage {
 	a, b := w.a, w.binder
 	f, ok := a.cur.Features["input"]
@@ -444,7 +520,8 @@ func buildInput(w *window) *adw.PreferencesPage {
 	g.SetDescription("Switching away from this computer's input turns this screen off.")
 	var lead *gtk.CheckButton
 	checks := map[string]*gtk.CheckButton{}
-	for _, k := range enumKeys(f) {
+	reported := a.cur.Caps[fmt.Sprintf("%02x", f.VCP)] // empty = the monitor didn't say; trust the model file
+	for i, k := range enumKeys(f) {
 		c := gtk.NewCheckButton()
 		if lead == nil {
 			lead = c
@@ -458,9 +535,67 @@ func buildInput(w *window) *adw.PreferencesPage {
 		})
 		checks[k] = c
 		r := adw.NewActionRow()
-		r.SetTitle(valueLabel(k))
 		r.AddPrefix(c)
 		r.SetActivatableWidget(c)
+		showName := func() {
+			r.SetTitle(a.inputLabel(k))
+			sub := ""
+			if a.inputLabel(k) != valueLabel(k) {
+				sub = valueLabel(k)
+			}
+			r.SetSubtitle(sub)
+		}
+		showName()
+		if len(reported) > 0 && !slices.Contains(reported, f.Values[k]) {
+			// dimmed, not disabled: capability strings are often incomplete, so it may still work
+			r.AddCSSClass("dim-label")
+			r.SetSubtitle(strings.Join(slices.DeleteFunc([]string{r.Subtitle(), "not listed by the monitor"}, func(s string) bool { return s == "" }), " · "))
+		}
+
+		rename := gtk.NewButtonFromIconName("document-edit-symbolic")
+		rename.AddCSSClass("flat")
+		rename.SetVAlign(gtk.AlignCenter)
+		rename.SetTooltipText("Give this input your own name")
+		setA11yLabel(rename, "Rename "+valueLabel(k))
+		rename.ConnectClicked(func() { w.renameInputDialog(k, showName) })
+		r.AddSuffix(rename)
+
+		action := "input set " + k
+		key := gtk.NewToggleButton()
+		key.SetIconName("input-keyboard-symbolic")
+		key.AddCSSClass("flat")
+		key.SetVAlign(gtk.AlignCenter)
+		setA11yLabel(key, "Hotkey for "+valueLabel(k))
+		hasKey := func() bool {
+			return a.rules != nil && slices.ContainsFunc(a.rules.Shortcuts, func(s ShortcutInfo) bool { return s.Action == action && !s.Default })
+		}
+		tip := func() {
+			key.SetTooltipText(map[bool]string{
+				true:  "Hotkey on — click to remove. Assign the keys in System Settings → Shortcuts.",
+				false: "Add a global hotkey that switches the default monitor to this input",
+			}[key.Active()])
+		}
+		key.SetActive(hasKey())
+		tip()
+		key.ConnectToggled(func() {
+			if hasKey() == key.Active() {
+				return
+			}
+			method, params := "shortcut.rm", map[string]any{"action": action}
+			if key.Active() {
+				method, params = "shortcut.add", map[string]any{"action": action, "keys": fmt.Sprintf("Meta+Ctrl+%d", i+1)}
+			}
+			a.call(method, params, nil, func(err error) {
+				if err != nil {
+					a.toast(err.Error())
+					key.SetActive(hasKey())
+					return
+				}
+				tip()
+				a.refreshAutomation()
+			})
+		})
+		r.AddSuffix(key)
 		g.Add(r)
 	}
 	b.on("input", func(fv deck.FeatureValue) {
@@ -469,6 +604,44 @@ func buildInput(w *window) *adw.PreferencesPage {
 		}
 	})
 	return prefsPage(g, group(a, b, "KVM", "kvm"))
+}
+
+// renameInputDialog sets or clears your name for one input of the current monitor.
+func (w *window) renameInputDialog(key string, changed func()) {
+	a := w.a
+	dlg := adw.NewAlertDialog("Name this input", "Shown instead of “"+valueLabel(key)+"”. Leave empty to go back to the default.")
+	dlg.AddResponse("cancel", "Cancel")
+	dlg.AddResponse("save", "Save")
+	dlg.SetResponseAppearance("save", adw.ResponseSuggested)
+	dlg.SetDefaultResponse("save")
+	e := gtk.NewEntry()
+	e.SetText(a.prefs.InputLabels[a.cur.ID][key])
+	e.SetPlaceholderText(valueLabel(key))
+	setA11yLabel(e, "Input name")
+	e.SetActivatesDefault(true)
+	dlg.SetExtraChild(e)
+	id := a.cur.ID
+	dlg.ConnectResponse(func(answer string) {
+		if answer != "save" {
+			return
+		}
+		if a.prefs.InputLabels == nil {
+			a.prefs.InputLabels = map[string]map[string]string{}
+		}
+		if a.prefs.InputLabels[id] == nil {
+			a.prefs.InputLabels[id] = map[string]string{}
+		}
+		if name := strings.TrimSpace(e.Text()); name != "" {
+			a.prefs.InputLabels[id][key] = name
+		} else {
+			delete(a.prefs.InputLabels[id], key)
+		}
+		a.savePrefs()
+		changed()
+		w.rebuild() // the dropdown labels on the Display tab follow
+		a.refresh()
+	})
+	dlg.Present(&w.win.Window)
 }
 
 func buildMonitor(w *window) *adw.PreferencesPage {
@@ -557,7 +730,7 @@ func buildMonitor(w *window) *adw.PreferencesPage {
 	} else {
 		r := adw.NewActionRow()
 		r.SetTitle("No community file for this model")
-		r.SetSubtitle("Standard features only. Look it up in the community database, or map the rest below.")
+		r.SetSubtitle("Standard features only. Look it up in the community database, or map it yourself under Advanced.")
 		id := fmt.Sprintf("%s-%s-%d", m.Mfg, m.Model, m.Product)
 		fetch := gtk.NewButtonWithLabel("Look up")
 		fetch.SetVAlign(gtk.AlignCenter)
@@ -589,12 +762,12 @@ func buildMonitor(w *window) *adw.PreferencesPage {
 	start.SetVAlign(gtk.AlignCenter)
 	start.ConnectClicked(func() { a.openWizard() })
 	disco.AddSuffix(start)
-	vendor.Add(disco)
 
 	// tier 3: jargon behind one collapsed expander
 	adv := adw.NewExpanderRow()
 	adv.SetTitle("Advanced")
-	adv.SetSubtitle("Raw VCP codes — power-user territory")
+	adv.SetSubtitle("Map features, raw VCP codes, factory reset")
+	adv.AddRow(disco)
 	adv.AddRow(prop("Serial number", m.Serial))
 	adv.AddRow(prop("Product code", strconv.Itoa(m.Product)))
 	adv.AddRow(prop("Model file", fmt.Sprintf("%s (data/models/%s-%s-%d.toml)", map[bool]string{true: "loaded", false: "none"}[m.HasModel], m.Mfg, m.Model, m.Product)))
@@ -604,13 +777,7 @@ func buildMonitor(w *window) *adw.PreferencesPage {
 	for _, r := range rawVCPRows(w) {
 		adv.AddRow(r)
 	}
-	advanced := adw.NewPreferencesGroup()
-	advanced.Add(adv)
-
-	groups := []*adw.PreferencesGroup{info, vendor, advanced}
 	if _, supported := m.Features["reset"]; supported { // last and apart: never beside the safe actions
-		resetGroup := adw.NewPreferencesGroup()
-		resetGroup.SetTitle("Reset")
 		rst := adw.NewActionRow()
 		rst.SetTitle("Factory reset " + m.Model)
 		rst.SetSubtitle("Every monitor setting back to its defaults; profiles are not affected")
@@ -634,9 +801,12 @@ func buildMonitor(w *window) *adw.PreferencesPage {
 			confirm.Present(&w.win.Window)
 		})
 		rst.AddSuffix(btn)
-		resetGroup.Add(rst)
-		groups = append(groups, resetGroup)
+		adv.AddRow(rst)
 	}
+	advanced := adw.NewPreferencesGroup()
+	advanced.Add(adv)
+
+	groups := []*adw.PreferencesGroup{info, vendor, advanced}
 	return prefsPage(groups...)
 }
 
@@ -656,31 +826,52 @@ type diagCheck struct {
 }
 
 // buildDiagnostics is the GUI's `ddcdeck doctor`: every link in the chain, green or not.
+// The verdict sits on top as its own row; "Copy report" puts the whole list on the clipboard
+// for bug reports.
 func buildDiagnostics(w *window) *adw.PreferencesGroup {
 	a := w.a
 	g := adw.NewPreferencesGroup()
 	g.SetTitle("Diagnostics")
 	recheck := gtk.NewButtonFromIconName("view-refresh-symbolic")
+	recheck.AddCSSClass("flat")
 	recheck.SetVAlign(gtk.AlignCenter)
 	recheck.SetTooltipText("Run the checks again")
+	setA11yLabel(recheck, "Run the checks again")
+	var cs []diagCheck
+	copyBtn := gtk.NewButtonFromIconName("edit-copy-symbolic")
+	copyBtn.AddCSSClass("flat")
+	copyBtn.SetVAlign(gtk.AlignCenter)
+	copyBtn.SetTooltipText("Copy the report for a bug report")
+	setA11yLabel(copyBtn, "Copy the report")
+	copyBtn.SetSensitive(false)
+	copyBtn.ConnectClicked(func() {
+		var sb strings.Builder
+		fmt.Fprintf(&sb, "DDC Deck %s\n%s\n", appVersion(), diagSummary(countBad(cs), len(cs)))
+		for _, c := range cs {
+			fmt.Fprintf(&sb, "[%s] %s: %s\n", c.State, c.Name, c.Detail)
+		}
+		w.win.Clipboard().SetText(sb.String())
+		a.toast("Report copied")
+	})
 	rows := []*adw.ActionRow{}
 	run := func() {
-		var cs []diagCheck
-		a.call("doctor", map[string]any{}, &cs, func(err error) {
+		var res []diagCheck
+		a.call("doctor", map[string]any{}, &res, func(err error) {
 			if err != nil {
 				return // old daemon without the method
 			}
+			cs = res
 			for _, r := range rows {
 				g.Remove(r)
 			}
 			rows = rows[:0]
-			bad := 0
-			for _, c := range cs {
-				if c.State != "ok" {
-					bad++
-				}
-			}
-			g.SetDescription(diagSummary(bad, len(cs)))
+			bad := countBad(cs)
+			copyBtn.SetSensitive(true)
+			sum := adw.NewActionRow()
+			sum.SetTitle("<b>" + html.EscapeString(diagSummary(bad, len(cs))) + "</b>")
+			sum.AddPrefix(gtk.NewImageFromIconName(map[bool]string{true: "object-select-symbolic", false: "dialog-warning-symbolic"}[bad == 0]))
+			rows = append(rows, sum)
+			g.Add(sum)
 			for _, c := range cs {
 				row := adw.NewActionRow()
 				row.SetTitle(c.Name)
@@ -696,9 +887,21 @@ func buildDiagnostics(w *window) *adw.PreferencesGroup {
 		})
 	}
 	recheck.ConnectClicked(run)
-	g.SetHeaderSuffix(recheck)
+	hdr := gtk.NewBox(gtk.OrientationHorizontal, 0)
+	hdr.Append(copyBtn)
+	hdr.Append(recheck)
+	g.SetHeaderSuffix(hdr)
 	run()
 	return g
+}
+
+func countBad(cs []diagCheck) (bad int) {
+	for _, c := range cs {
+		if c.State != "ok" {
+			bad++
+		}
+	}
+	return
 }
 
 func missingTitles(m *deck.Monitor) []string {

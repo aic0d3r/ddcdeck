@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -80,7 +81,10 @@ type App struct {
 	hidden  bool
 	spawned time.Time
 
+	prefs           guiPrefs
 	rules           *RulesInfo
+	shortcutRow     *adw.ActionRow // Settings → Global shortcuts status
+	shortcutsBound  int
 	autoSwitch      *adw.SwitchRow
 	autoToggle      *gtk.ToggleButton
 	blueSwitch      *adw.SwitchRow // filter row, so the schedule can speak through it
@@ -108,6 +112,7 @@ func Run(hidden bool) int {
 		localAt: map[string]time.Time{},
 		seq:     map[string]int{},
 		hidden:  hidden,
+		prefs:   loadPrefs(),
 	}
 	a.app.ConnectStartup(func() {
 		a.app.Hold() // keep running in the tray with no visible window
@@ -351,6 +356,17 @@ func (a *App) set(feature, value string) {
 	a.seq[feature]++
 	n := a.seq[feature]
 	raw, _ := json.Marshal(value)
+	if a.prefs.LinkMonitors && numeric.MatchString(value) { // sliders drive every monitor that has the feature
+		for _, o := range a.mons {
+			if _, ok := o.Features[feature]; ok && o != a.cur {
+				a.call("set", deck.Params{Display: o.ID, Feature: feature, Value: raw}, nil, func(err error) {
+					if err != nil {
+						a.toast(o.Model + ": " + err.Error())
+					}
+				})
+			}
+		}
+	}
 	var fv deck.FeatureValue
 	a.call("set", deck.Params{Feature: feature, Value: raw}, &fv, func(err error) {
 		if err != nil {
@@ -363,6 +379,8 @@ func (a *App) set(feature, value string) {
 		}
 	})
 }
+
+var numeric = regexp.MustCompile(`^[+-]?\d+$`)
 
 func (a *App) onEvent(e deck.Event) {
 	switch e.Event {
@@ -443,7 +461,7 @@ func (a *App) bindShortcuts(scs []ShortcutInfo) {
 		a.scm = nil // Close is final: the next non-empty list builds a fresh Manager
 		go func() {
 			mgr.Close()
-			idle(func() { a.shortcutsErr = "" })
+			idle(func() { a.shortcutsErr, a.shortcutsBound = "", 0; a.syncShortcutRow() })
 		}()
 		return
 	}
@@ -465,7 +483,9 @@ func (a *App) bindShortcuts(scs []ShortcutInfo) {
 				slog.Warn("global shortcuts not bound", "err", err)
 			} else {
 				a.shortcutsErr = ""
+				a.shortcutsBound = len(scs)
 			}
+			a.syncShortcutRow()
 			a.refreshAutomation()
 		})
 	}()

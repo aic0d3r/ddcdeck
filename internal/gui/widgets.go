@@ -5,14 +5,19 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
 	coreglib "github.com/diamondburned/gotk4/pkg/core/glib"
+	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 
 	"github.com/aic0d3r/ddcdeck/internal/deck"
 	"github.com/aic0d3r/ddcdeck/internal/model"
 )
+
+// dragThrottle: minimum gap between writes while a slider is dragged.
+const dragThrottle = 100 * time.Millisecond
 
 const noSelection = math.MaxUint32 // GTK_INVALID_LIST_POSITION
 
@@ -94,13 +99,32 @@ func newScale(a *App, b *binder, feature string, f model.Feature) *gtk.Scale {
 	s.SetDigits(0)
 	s.SetRoundDigits(0)
 	setA11yLabel(s, title(feature))
-	last := -1
+	last, want := -1, 0
+	var lastSent time.Time
+	pending := false
+	send := func() {
+		pending = false
+		lastSent = time.Now()
+		a.set(feature, strconv.Itoa(want))
+	}
+	// Throttle, not debounce: the first change goes out at once and a drag keeps sending
+	// the newest value every dragThrottle, so the monitor follows the thumb without a
+	// flood of I2C writes. A failed write toasts and re-reads the real value (App.set).
 	s.ConnectValueChanged(func() {
 		v := int(math.Round(s.Value()))
-		if v != last {
-			last = v
-			a.set(feature, strconv.Itoa(v))
+		if v == last {
+			return
 		}
+		last, want = v, v
+		if pending {
+			return
+		}
+		if d := time.Since(lastSent); d < dragThrottle {
+			pending = true
+			glib.TimeoutAdd(uint((dragThrottle-d)/time.Millisecond)+1, func() bool { send(); return false })
+			return
+		}
+		send()
 	})
 	b.on(feature, func(fv deck.FeatureValue) {
 		if f.Max == 0 && fv.Max > 0 {
@@ -165,6 +189,9 @@ func comboRow(a *App, b *binder, feature string, f model.Feature) *adw.ComboRow 
 	labels := make([]string, len(keys))
 	for i, k := range keys {
 		labels[i] = valueLabel(k)
+		if feature == "input" {
+			labels[i] = a.inputLabel(k) // the user's own names
+		}
 	}
 	r := adw.NewComboRow()
 	r.SetTitle(title(feature))

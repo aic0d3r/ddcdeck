@@ -66,6 +66,7 @@ func (w *window) rebuildProfiles() {
 		return
 	}
 	clearGroup(g, &w.profRows)
+	w.refreshPresets()
 	var res struct {
 		Profiles []struct {
 			Name     string `json:"name"`
@@ -164,17 +165,17 @@ func (w *window) saveProfileDialog() {
 	name.SetPlaceholderText("Profile name")
 	setA11yLabel(name, "Profile name")
 	box.Append(name)
+	var all *gtk.CheckButton
+	if len(a.mons) > 1 {
+		all = gtk.NewCheckButtonWithLabel("Store every connected monitor")
+		all.SetTooltipText("Saves each monitor's values for the ticked fields; applying sets them all")
+		box.Append(all)
+	}
 	checks := map[string]*gtk.CheckButton{}
-	var lead *gtk.CheckButton
 	for _, f := range sortedFeatureNames(a.cur) {
 		c := gtk.NewCheckButton()
 		c.SetLabel(title(f))
 		c.SetActive(true)
-		if lead == nil {
-			lead = c
-		} else {
-			c.SetGroup(lead)
-		}
 		checks[f] = c
 		box.Append(c)
 	}
@@ -193,7 +194,7 @@ func (w *window) saveProfileDialog() {
 				fields = append(fields, f)
 			}
 		}
-		a.call("profile.save", map[string]any{"name": name.Text(), "fields": fields}, nil, func(err error) {
+		a.call("profile.save", map[string]any{"name": name.Text(), "fields": fields, "all": all != nil && all.Active()}, nil, func(err error) {
 			if err != nil {
 				a.toast(err.Error())
 				return
@@ -212,9 +213,10 @@ func buildAutomation(w *window) *adw.PreferencesPage {
 	a := w.a
 	auto := adw.NewPreferencesGroup()
 	auto.SetTitle("Automation")
+	auto.SetDescription("Rules and sun times run by themselves. Pausing stops them; manual changes always work.")
 	sw := adw.NewSwitchRow()
-	sw.SetTitle("Enable automation")
-	sw.SetSubtitle("Pauses all triggers; manual changes keep working")
+	sw.SetTitle("Run automation")
+	sw.SetSubtitle("Off pauses every rule below")
 	sw.Connect("notify::active", func() {
 		if !a.syncing {
 			a.setAuto(sw.Active())
@@ -223,11 +225,8 @@ func buildAutomation(w *window) *adw.PreferencesPage {
 	a.autoSwitch = sw
 	auto.Add(sw)
 
-	loc := adw.NewPreferencesGroup()
-	loc.SetTitle("Location")
-	loc.SetDescription("City for sunset and sunrise times — defaults to your timezone's city")
 	a.placeRow = adw.NewActionRow()
-	a.placeRow.SetTitle("City")
+	a.placeRow.SetTitle("City for sunset and sunrise")
 	entry := gtk.NewEntry()
 	entry.SetPlaceholderText("Amsterdam, Tokyo, or 52.37 4.90")
 	entry.SetWidthChars(18)
@@ -264,11 +263,12 @@ func buildAutomation(w *window) *adw.PreferencesPage {
 	box.Append(btn)
 	a.placeRow.AddSuffix(box)
 	a.placeEntry = entry
-	loc.Add(a.placeRow)
+	auto.Add(a.placeRow)
 	a.loadZones()
 
 	rules := adw.NewPreferencesGroup()
 	rules.SetTitle("Rules")
+	rules.SetDescription("When something happens, apply a profile")
 	add := gtk.NewButtonWithLabel("Add…")
 	add.SetVAlign(gtk.AlignCenter)
 	add.ConnectClicked(func() { w.addRuleDialog() })
@@ -280,7 +280,7 @@ func buildAutomation(w *window) *adw.PreferencesPage {
 	sc.SetDescription("Global shortcuts are assigned in System Settings → Shortcuts → DDC Deck")
 	a.shortcutsGroup = sc
 
-	return prefsPage(auto, loc, rules, sc)
+	return prefsPage(auto, rules, sc)
 }
 
 // refreshAutomation fills the rules and shortcuts groups from the last rules.list.
@@ -298,7 +298,11 @@ func (a *App) refreshAutomation() {
 		if a.autoToggle != nil {
 			syncAutoToggle(a.autoToggle, res.Auto)
 		}
+		if a.rulesGroup != nil {
+			a.rulesGroup.SetSensitive(res.Auto) // paused rules read as paused
+		}
 		a.updateTrayPause(res.Auto)
+		a.bindShortcuts(res.Shortcuts) // no-op unless the list changed (e.g. a new input hotkey)
 		if a.placeRow != nil {
 			now := fmt.Sprintf("%.2f, %.2f", res.Location.Lat, res.Location.Lon)
 			if res.LocationName != "" {

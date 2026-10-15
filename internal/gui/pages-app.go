@@ -3,6 +3,7 @@ package gui
 import (
 	"context"
 	"fmt"
+	"html"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -87,6 +88,23 @@ func buildAppSettings(w *window) *adw.PreferencesPage {
 	})
 	startup.Add(sw)
 
+	closeRow := adw.NewSwitchRow()
+	closeRow.SetTitle("Keep running in the tray when closed")
+	closeRow.SetSubtitle("Off: closing the window quits DDC Deck, and automation stops with it")
+	closeRow.SetActive(!a.prefs.QuitOnClose)
+	closeRow.NotifyProperty("active", func() {
+		a.prefs.QuitOnClose = !closeRow.Active()
+		a.savePrefs()
+	})
+	startup.Add(closeRow)
+
+	keys := adw.NewPreferencesGroup()
+	keys.SetTitle("Global shortcuts")
+	a.shortcutRow = adw.NewActionRow()
+	a.shortcutRow.SetTitle("Status")
+	keys.Add(a.shortcutRow)
+	a.syncShortcutRow()
+
 	about := adw.NewPreferencesGroup()
 	about.SetTitle("About")
 	for _, kv := range [][2]string{{"Version", appVersion()}, {"License", "GPL-3.0-only"}} {
@@ -106,7 +124,7 @@ func buildAppSettings(w *window) *adw.PreferencesPage {
 	src.AddSuffix(open)
 	about.Add(src)
 
-	return prefsPage(startup, buildDiagnostics(w), about)
+	return prefsPage(startup, keys, buildDiagnostics(w), about)
 }
 
 // unverifiedTitles names the vendor features of the loaded model file that nobody has
@@ -145,4 +163,23 @@ func unverifiedRow(w *window, names []string) *adw.ActionRow {
 	}
 	r.AddSuffix(box)
 	return r
+}
+
+// syncShortcutRow says whether the global hotkeys are actually registered, and if not, why.
+func (a *App) syncShortcutRow() {
+	r := a.shortcutRow
+	if r == nil {
+		return
+	}
+	switch {
+	case a.shortcutsErr != "":
+		r.SetSubtitle(html.EscapeString(a.shortcutsErr))
+		r.SetTitle("Not active")
+	case a.shortcutsBound > 0:
+		r.SetTitle("Active")
+		r.SetSubtitle(fmt.Sprintf("%d shortcut(s) registered. Assign keys in System Settings → Shortcuts → DDC Deck.", a.shortcutsBound))
+	default:
+		r.SetTitle("None registered")
+		r.SetSubtitle("Add one from the Input tab or rules.toml")
+	}
 }

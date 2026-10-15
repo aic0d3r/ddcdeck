@@ -405,3 +405,32 @@ func TestPauseSurvivesSunTransition(t *testing.T) {
 		return bus.vals[0xE6].Cur == want
 	})
 }
+
+func TestShortcutAddRmAndSaveAll(t *testing.T) {
+	e, svc, _ := newEnv(t)
+	Register(svc, e)
+	call := func(method string, p map[string]any) error {
+		raw, _ := json.Marshal(p)
+		_, err := svc.Handle(method, raw)
+		return err
+	}
+	if err := call("profile.save", map[string]any{"name": "everything", "all": true}); err != nil {
+		t.Fatalf("profile.save all: %v", err)
+	}
+	if err := call("shortcut.add", map[string]any{"keys": "Meta+Ctrl+1", "action": "input set hdmi1"}); err != nil {
+		t.Fatal(err)
+	}
+	if call("shortcut.add", map[string]any{"keys": "Meta+Ctrl+2", "action": "input set hdmi1"}) == nil {
+		t.Fatal("a second shortcut for the same action should be refused")
+	}
+	cfg, _ := LoadConfig()
+	if len(cfg.Shortcut) != 4 { // 3 suggestions kept as real entries + ours
+		t.Fatalf("shortcuts after add: %+v", cfg.Shortcut)
+	}
+	if err := call("shortcut.rm", map[string]any{"action": "input set hdmi1"}); err != nil {
+		t.Fatal(err)
+	}
+	if call("shortcut.rm", map[string]any{"action": "input set hdmi1"}) == nil {
+		t.Fatal("removing a missing shortcut should error")
+	}
+}

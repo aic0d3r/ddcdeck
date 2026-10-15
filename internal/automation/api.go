@@ -1,11 +1,13 @@
 package automation
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/aic0d3r/ddcdeck/internal/deck"
@@ -76,6 +78,7 @@ func Register(s *deck.Service, e *Engine) {
 			Name    string   `json:"name"`
 			Display string   `json:"display,omitempty"`
 			Fields  []string `json:"fields,omitempty"`
+			All     bool     `json:"all,omitempty"` // one section per connected monitor
 		}
 		if err := decode(raw, &p); err != nil {
 			return nil, err
@@ -83,44 +86,64 @@ func Register(s *deck.Service, e *Engine) {
 		if p.Name == "" {
 			return nil, usage("name is required")
 		}
-		statusRaw, _ := json.Marshal(deck.Params{Display: p.Display})
-		r, err := s.Handle("status", statusRaw)
-		if err != nil {
-			return nil, err
-		}
-		res, _ := r.(deck.StatusResult)
 		want := map[string]bool{}
 		for _, f := range p.Fields {
 			want[f] = true
 		}
-		var mon *deck.Monitor
-		if r, err := s.Handle("monitor", mustJSON(deck.Params{Display: p.Display})); err == nil {
-			mon, _ = r.(*deck.Monitor)
+		var targets []*deck.Monitor
+		if p.All {
+			r, err := s.Handle("list", nil)
+			if err != nil {
+				return nil, err
+			}
+			res, _ := r.(deck.ListResult)
+			targets = res.Monitors
+		} else if r, err := s.Handle("monitor", mustJSON(deck.Params{Display: p.Display})); err == nil {
+			if mon, _ := r.(*deck.Monitor); mon != nil {
+				targets = []*deck.Monitor{mon}
+			}
 		}
-		if mon == nil {
+		if len(targets) == 0 {
 			return nil, &deck.Error{Code: deck.ErrNoMonitor, Message: "no monitor selected"}
 		}
-		prof := Profile{Name: p.Name, Monitors: []ProfileSection{{Match: mon.Model, Fields: map[string]any{}}}}
-		for _, fv := range res.Values {
-			if fv.Feature == "reset" {
-				continue // storing it would factory-reset the monitor on every apply
+		prof := Profile{Name: p.Name}
+		for _, mon := range targets {
+			r, err := s.Handle("status", mustJSON(deck.Params{Display: mon.ID}))
+			if err != nil {
+				return nil, err
 			}
-			if len(want) > 0 && !want[fv.Feature] {
-				continue
+			res, _ := r.(deck.StatusResult)
+			match := mon.Model
+			for _, o := range targets { // same model twice: the model name can't tell them apart
+				if o != mon && o.Model == mon.Model {
+					match = cmp.Or(mon.Serial, mon.ID)
+				}
 			}
-			if fv.Name != "" {
-				prof.Monitors[0].Fields[fv.Feature] = fv.Name
-			} else {
-				prof.Monitors[0].Fields[fv.Feature] = fv.Value
+			sec := ProfileSection{Match: match, Fields: map[string]any{}}
+			for _, fv := range res.Values {
+				if fv.Feature == "reset" {
+					continue // storing it would factory-reset the monitor on every apply
+				}
+				if len(want) > 0 && !want[fv.Feature] {
+					continue
+				}
+				if fv.Name != "" {
+					sec.Fields[fv.Feature] = fv.Name
+				} else {
+					sec.Fields[fv.Feature] = fv.Value
+				}
+			}
+			if len(sec.Fields) > 0 {
+				prof.Monitors = append(prof.Monitors, sec)
 			}
 		}
-		if len(prof.Monitors[0].Fields) == 0 {
+		if len(prof.Monitors) == 0 {
 			return nil, usage("nothing to save: no supported features matched")
 		}
 		if err := SaveProfile(prof); err != nil {
 			return nil, &deck.Error{Code: deck.ErrDDC, Message: err.Error()}
 		}
-		s.Emit(deck.Event{Event: "profile", Display: mon.ID, Profile: p.Name, State: "saved"})
+		s.Emit(deck.Event{Event: "profile", Display: targets[0].ID, Profile: p.Name, State: "saved"})
 		return prof, nil
 	})
 
@@ -278,6 +301,53 @@ func Register(s *deck.Service, e *Engine) {
 		}
 		e.reload()
 		return map[string]bool{"removed": true}, nil
+	})
+
+	reg("shortcut.add", func(raw json.RawMessage) (any, error) {
+		var p Shortcut
+		if err := decode(raw, &p); err != nil {
+			return nil, err
+		}
+		if p.Keys == "" || p.Action == "" {
+			return nil, usage("keys and action are both required")
+		}
+		cfg, err := LoadConfig()
+		if err != nil {
+			return nil, usage("rules.toml is invalid, fix it first: %v", err)
+		}
+		for i := range cfg.Shortcut {
+			cfg.Shortcut[i].Default = false // adding one takes over from the suggestions: keep them as real entries
+			if cfg.Shortcut[i].Action == p.Action {
+				return nil, usage("%q already has a shortcut", p.Action)
+			}
+		}
+		cfg.Shortcut = append(cfg.Shortcut, Shortcut{Keys: p.Keys, Action: p.Action})
+		if err := SaveConfig(cfg); err != nil {
+			return nil, &deck.Error{Code: deck.ErrDDC, Message: err.Error()}
+		}
+		return map[string]any{"added": p.Action}, nil
+	})
+
+	reg("shortcut.rm", func(raw json.RawMessage) (any, error) {
+		var p struct {
+			Action string `json:"action"`
+		}
+		if err := decode(raw, &p); err != nil {
+			return nil, err
+		}
+		cfg, err := LoadConfig()
+		if err != nil {
+			return nil, usage("rules.toml is invalid, fix it first: %v", err)
+		}
+		n := len(cfg.Shortcut)
+		cfg.Shortcut = slices.DeleteFunc(cfg.Shortcut, func(s Shortcut) bool { return s.Action == p.Action && !s.Default })
+		if len(cfg.Shortcut) == n {
+			return nil, usage("no shortcut for %q", p.Action)
+		}
+		if err := SaveConfig(cfg); err != nil {
+			return nil, &deck.Error{Code: deck.ErrDDC, Message: err.Error()}
+		}
+		return map[string]any{"removed": p.Action}, nil
 	})
 
 	reg("auto.set", func(raw json.RawMessage) (any, error) {
