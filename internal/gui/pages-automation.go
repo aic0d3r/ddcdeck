@@ -308,6 +308,7 @@ func buildAutomation(w *window) *adw.PreferencesPage {
 	entry := gtk.NewEntry()
 	entry.SetPlaceholderText("City or 52.37 4.90")
 	entry.SetWidthChars(20)
+	entry.SetVAlign(gtk.AlignCenter) // else it stretches to the row's full height
 	setA11yLabel(entry, "Location: city or coordinates")
 	a.zoneStore = gtk.NewTreeStore([]glib.Type{glib.TypeString})
 	completion := gtk.NewEntryCompletion()

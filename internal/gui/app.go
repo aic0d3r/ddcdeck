@@ -41,10 +41,14 @@ window.ddcdeck-panel { background: transparent; }
    global on purpose: a future row cannot forget a size class and come out chunky.
    Cards-only scope keeps dialogs and header buttons at platform touch size;
    circular keeps AdwSpinRow steppers round. New rows: prefer AdwComboRow/SpinRow. */
-window.ddcdeck-main .card button:not(.circular) { min-height: 0; padding: 4px 14px; }
-window.ddcdeck-main .card entry { min-height: 0; padding: 4px 10px; }
-window.ddcdeck-main .card spinbutton { min-height: 0; }
-window.ddcdeck-main .card dropdown > button { min-height: 0; padding: 3px 8px; }
+window.ddcdeck-main .card button:not(.circular),
+window.ddcdeck-main .boxed-list row button:not(.circular) { min-height: 0; padding: 4px 14px; }
+window.ddcdeck-main .card entry,
+window.ddcdeck-main .boxed-list row entry { min-height: 0; padding: 4px 10px; }
+window.ddcdeck-main .card spinbutton,
+window.ddcdeck-main .boxed-list row spinbutton { min-height: 0; }
+window.ddcdeck-main .card dropdown > button,
+window.ddcdeck-main .boxed-list row dropdown > button { min-height: 0; padding: 3px 8px; }
 `
 
 // AppID is the GApplication / desktop file id.
