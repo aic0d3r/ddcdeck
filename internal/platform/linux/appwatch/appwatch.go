@@ -1,8 +1,8 @@
-// Package appwatch reports the active window class to the automation engine on KDE
-// Plasma: a small KWin script calls a D-Bus method the daemon exports. The class is
-// KWin's resourceClass, i.e. the application id ("kitty", "io.github.aic0d3r.DDCDeck").
-// AT-SPI focus events were tried first (cross-desktop) but event delivery is disabled
-// on this system, so v1 ships KWin-only, as the design planned.
+// Package appwatch reports the active window class to the automation engine. On KDE
+// Plasma a small KWin script calls a D-Bus method the daemon exports; on Hyprland and Sway
+// the daemon follows the compositor's own event stream (wm.go). The class is the
+// application id ("kitty", "io.github.aic0d3r.DDCDeck"). GNOME has no such API without
+// a shell extension, so app rules do not fire there.
 package appwatch
 
 import (
@@ -38,6 +38,7 @@ type Watcher struct {
 
 	mu      sync.Mutex
 	loaded  bool
+	kwin    bool // the KWin script (not a Hyprland/Sway stream) is what is loaded
 	stopped bool
 }
 
@@ -56,13 +57,18 @@ func Start(ctx context.Context, onClass func(string)) (*Watcher, error) {
 	if reply, err := conn.RequestName(busName, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
 		return nil, fmt.Errorf("D-Bus name %s unavailable: %v", busName, err)
 	}
-	if err := w.loadScript(); err != nil {
-		slog.Info("app watcher inactive (no KWin?)", "err", err)
-	} else {
+	if err := w.loadScript(); err == nil {
+		w.mu.Lock()
+		w.loaded, w.kwin = true, true
+		w.mu.Unlock()
+		slog.Info("app watcher active (KWin script)")
+	} else if name, werr := watchWM(ctx, onClass); werr == nil {
 		w.mu.Lock()
 		w.loaded = true
 		w.mu.Unlock()
-		slog.Info("app watcher active (KWin script)")
+		slog.Info("app watcher active", "compositor", name)
+	} else {
+		slog.Info("app watcher inactive (no KWin, Hyprland or Sway?)", "kwin", err, "wm", werr)
 	}
 	go w.watchKWinRestarts(ctx)
 	go func() {
@@ -164,7 +170,7 @@ func (w *Watcher) Active() bool {
 func (w *Watcher) Stop() {
 	w.mu.Lock()
 	w.stopped = true
-	loaded := w.loaded
+	loaded := w.loaded && w.kwin
 	w.loaded = false
 	w.mu.Unlock()
 	if loaded {

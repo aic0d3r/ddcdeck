@@ -329,7 +329,27 @@ output), `model export-mccs` (the wizard and `model.fetch` write the file themse
   not reset the monitor), hidden from the Display page.
 
 Deliberately not built: a software blue-light/brightness fallback (KDE Night Color and GNOME
-Night Light already do this in the compositor; hardware codes stay DDC Deck's job) and i18n.
+Night Light already do this in the compositor; hardware codes stay DDC Deck's job).
+
+**Adoption pass (2026-10).**
+
+- **i18n** — `internal/i18n`: `T("English text")`, the English is the key and the fallback.
+  Locales are TOML files embedded from `internal/i18n/locales/` and picked from `LC_ALL` /
+  `LC_MESSAGES` / `LANG`; `scripts/gen-locale-template.py` regenerates `template.toml` (CI
+  checks it). Only fixed GUI strings are wrapped. Shortcut: strings built with `fmt.Sprintf`
+  or concatenation ("Applied " + name) and server-side text (rule descriptions, doctor
+  output) stay English; move them to whole-sentence keys when the first translator asks.
+- **DDC timing** — `sleep_multiplier` and `disable_dynamic_sleep` in config.toml become global
+  ddcutil flags (`ddcutil.Tuning`, set when the service is created, so a daemon restart
+  applies them); `doctor` points at them when no monitor answers. Whether DisplayPort alt-mode
+  paths are a common cause is unverified.
+- **App rules beyond KWin** — `appwatch/wm.go` follows Hyprland (`.socket2.sock`,
+  `activewindow>>`) and Sway (`swaymsg -t subscribe`). GNOME needs a shell extension: not done.
+- **Model feedback** — `ddcdeck model report works|partial|broken` (prefilled issue, same
+  no-upload rule as `submit`). CLI-only for now. `docs/MODELS.md` is generated from
+  `data/models/` (`make generate`) as the searchable "is my monitor covered" page.
+- **Not done**: a README screenshot/GIF (needs a real capture of the running GUI) and the
+  release pipeline.
 
 **App watcher (2026-10, implemented):** a KWin script (embedded, installed to
 `~/.local/share/ddcdeck/kwin/`) reports `windowActivated` + the active window's
@@ -365,4 +385,4 @@ Open questions:
 - Which OSD blue light level maps to which E6 value? The OSD level the user picked read back as 20.
 - Is there a KVM/USB-upstream code?
 - Can PiP/PbP be controlled over DDC at all?
-- Active-app trigger on GNOME needs a Shell extension; v1 is KWin-only.
+- Active-app trigger on GNOME needs a Shell extension; KWin, Hyprland and Sway are covered.

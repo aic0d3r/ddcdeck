@@ -6,7 +6,7 @@ UNITDIR := $(HOME)/.config/systemd/user
 APPID   := io.github.aic0d3r.DDCDeck
 DATADIR := $(HOME)/.local/share
 
-.PHONY: build build-gui test install install-cli install-service install-gui uninstall
+.PHONY: build build-gui test generate install install-cli install-service install-gui uninstall
 
 build:
 	go build -trimpath -ldflags "$(LDFLAGS)" -o ddcdeck .
@@ -16,6 +16,11 @@ build-gui:
 
 test:
 	go vet ./... && go test -race ./...
+
+# regenerate the committed docs/MODELS.md and the translation template
+generate:
+	python3 scripts/gen-models-doc.py
+	python3 scripts/gen-locale-template.py
 
 # install = everything (CLI, daemon, GUI, tray). install-cli is the headless subset.
 install: build build-gui

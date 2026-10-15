@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/aic0d3r/ddcdeck/internal/i18n"
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
@@ -77,7 +78,7 @@ func (a *App) openWizard() {
 
 func (w *guiWizard) build() {
 	w.dlg = adw.NewDialog()
-	w.dlg.SetTitle("Discover features")
+	w.dlg.SetTitle(i18n.T("Discover features"))
 	w.dlg.SetContentWidth(460)
 
 	root := gtk.NewBox(gtk.OrientationVertical, 4)
@@ -122,7 +123,7 @@ func (w *guiWizard) build() {
 	root.Append(feedback)
 
 	buttons := gtk.NewBox(gtk.OrientationHorizontal, 8)
-	cancel := gtk.NewButtonWithLabel("Cancel")
+	cancel := gtk.NewButtonWithLabel(i18n.T("Cancel"))
 	cancel.ConnectClicked(func() { w.dlg.Close() })
 	buttons.Append(cancel)
 	buttons.Append(gtk.NewBox(gtk.OrientationHorizontal, 0)) // spacer
@@ -198,11 +199,11 @@ func (w *guiWizard) goDDC(busy string, f func() error, done func(err error)) {
 
 func (w *guiWizard) phaseName() {
 	entry := gtk.NewEntry()
-	entry.SetPlaceholderText("e.g. bluelight")
+	entry.SetPlaceholderText(i18n.T("e.g. bluelight"))
 	setA11yLabel(entry, "Feature name")
 	quick := gtk.NewDropDownFromStrings(suggestions)
 	slim(quick, "flat")
-	quick.SetTooltipText("Fill in a suggestion")
+	quick.SetTooltipText(i18n.T("Fill in a suggestion"))
 	quick.Connect("notify::selected", func() {
 		if i := int(quick.Selected()); i < len(suggestions) {
 			entry.SetText(suggestions[i])
@@ -217,7 +218,7 @@ func (w *guiWizard) phaseName() {
 		"Start", "", func() {
 			name := strings.ToLower(strings.TrimSpace(entry.Text()))
 			if !wizardName.MatchString(name) {
-				w.a.toast("Names are lowercase letters, digits and underscores")
+				w.a.toast(i18n.T("Names are lowercase letters, digits and underscores"))
 				w.primary.SetSensitive(true)
 				return
 			}
@@ -305,7 +306,7 @@ func (w *guiWizard) codes() string {
 // phaseValue names the enum value just set (0x0F → "user1", …).
 func (w *guiWizard) phaseValue(note string) {
 	entry := gtk.NewEntry()
-	entry.SetPlaceholderText("e.g. hdmi1")
+	entry.SetPlaceholderText(i18n.T("e.g. hdmi1"))
 	setA11yLabel(entry, "Value name")
 	collected := gtk.NewLabel(w.valueList())
 	collected.AddCSSClass("dim-label")
@@ -320,14 +321,14 @@ func (w *guiWizard) phaseValue(note string) {
 		"Save value", "Finish", func() {
 			n := strings.ToLower(strings.TrimSpace(entry.Text()))
 			if !wizardName.MatchString(n) {
-				w.a.toast("Names are lowercase letters, digits and underscores")
+				w.a.toast(i18n.T("Names are lowercase letters, digits and underscores"))
 				return
 			}
 			w.values[n] = w.curVal
 			w.phaseOsdValue()
 		}, func() {
 			if len(w.values) == 0 {
-				w.a.toast("Name at least one value")
+				w.a.toast(i18n.T("Name at least one value"))
 				return
 			}
 			w.phaseConfirm()
@@ -369,7 +370,7 @@ func (w *guiWizard) phaseOsdValue() {
 // phaseOff asks for the optional off value of a range feature.
 func (w *guiWizard) phaseOff() {
 	entry := gtk.NewEntry()
-	entry.SetPlaceholderText("blank if there is no off value")
+	entry.SetPlaceholderText(i18n.T("blank if there is no off value"))
 	setA11yLabel(entry, "Off value")
 	w.setPhase(3, 4, fmt.Sprintf("Found VCP %02X", w.finding.Code),
 		fmt.Sprintf("“%s” is a range up to %d. Which value means “off”?", w.name, w.finding.New.Max),
@@ -378,7 +379,7 @@ func (w *guiWizard) phaseOff() {
 			if t := strings.TrimSpace(entry.Text()); t != "" {
 				n, err := strconv.Atoi(t)
 				if err != nil {
-					w.a.toast("The off value is a number")
+					w.a.toast(i18n.T("The off value is a number"))
 					return
 				}
 				w.off = &n
@@ -401,7 +402,7 @@ func (w *guiWizard) phaseConfirm() {
 			"Yes, save it", "No", func() {
 				w.save()
 			}, func() {
-				w.a.toast("Not saved — the code is probably unrelated")
+				w.a.toast(i18n.T("Not saved — the code is probably unrelated"))
 				w.phaseName()
 			})
 	})
@@ -430,21 +431,21 @@ func (w *guiWizard) save() {
 		})
 	})
 
-	copyBtn := gtk.NewButtonWithLabel("Copy model file")
+	copyBtn := gtk.NewButtonWithLabel(i18n.T("Copy model file"))
 	copyBtn.ConnectClicked(func() {
 		gdk.DisplayGetDefault().Clipboard().SetText(w.prText(modelPath))
-		w.a.toast("Copied — for a forum post, or if the browser route fails")
+		w.a.toast(i18n.T("Copied — for a forum post, or if the browser route fails"))
 	})
-	submit := gtk.NewButtonWithLabel("Submit to community database")
+	submit := gtk.NewButtonWithLabel(i18n.T("Submit to community database"))
 	submit.AddCSSClass("suggested-action")
 	submit.ConnectClicked(func() {
 		toml, _ := os.ReadFile(modelPath) // the whole accumulated file: one issue per monitor
 		// The user reviews the prefilled issue; nothing leaves this machine until they
 		// press Submit in the browser.
 		gtk.NewURILauncher(disco.SubmitURL(string(toml))).Launch(context.Background(), nil, nil)
-		w.a.toast("Opening the browser — review and press Submit")
+		w.a.toast(i18n.T("Opening the browser — review and press Submit"))
 	})
-	another := gtk.NewButtonWithLabel("Discover another")
+	another := gtk.NewButtonWithLabel(i18n.T("Discover another"))
 	another.ConnectClicked(func() {
 		w.round, w.diff, w.values = 0, nil, map[string]int{}
 		w.prev = w.sess.Base()

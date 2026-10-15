@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/aic0d3r/ddcdeck/internal/i18n"
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
 	coreglib "github.com/diamondburned/gotk4/pkg/core/glib"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
@@ -70,7 +71,7 @@ type window struct {
 func newWindow(a *App) *window {
 	w := &window{a: a, binder: &binder{}}
 	w.win = adw.NewApplicationWindow(&a.app.Application)
-	w.win.SetTitle("DDC Deck")
+	w.win.SetTitle(i18n.T("DDC Deck"))
 	w.win.AddCSSClass("ddcdeck-main")
 	w.win.SetDefaultSize(820, 600)
 	w.win.SetHideOnClose(true) // close = back to the tray, unless the user chose otherwise
@@ -102,7 +103,7 @@ func newWindow(a *App) *window {
 			w.show(row.Name())
 		}
 	})
-	w.profHead = gtk.NewLabel("Quick profiles")
+	w.profHead = gtk.NewLabel(i18n.T("Quick profiles"))
 	w.profHead.AddCSSClass("heading")
 	w.profHead.SetXAlign(0)
 	w.profHead.SetMarginStart(15) // lines up with the row labels below
@@ -132,7 +133,7 @@ func newWindow(a *App) *window {
 	hb.SetTitleWidget(w.picker)
 	autoBtn := gtk.NewToggleButton()
 	autoBtn.SetIconName("alarm-symbolic")
-	autoBtn.SetTooltipText("Automation runs your rules automatically — sunset times, docking, focused apps.\nClick to pause it; manual changes always work.")
+	autoBtn.SetTooltipText(i18n.T("Automation runs your rules automatically — sunset times, docking, focused apps.\nClick to pause it; manual changes always work."))
 	autoBtn.ConnectToggled(func() {
 		if !a.syncing {
 			a.setAuto(autoBtn.Active())
@@ -181,12 +182,12 @@ func isInfoPage(name string) bool { return name == "monitor" || name == "setting
 // likely fix, one click), and only when that comes back empty the guided discovery.
 func (w *window) setBanner() {
 	if w.notFound {
-		w.banner.SetTitle("Not in the community database yet. Map its features yourself, then share them.")
+		w.banner.SetTitle(i18n.T("Not in the community database yet. Map its features yourself, then share them."))
 		w.banner.SetButtonLabel("Discover features…")
 		w.banner.SetTooltipText("")
 		return
 	}
-	w.banner.SetTitle("Standard features only. The community database may have more for this monitor.")
+	w.banner.SetTitle(i18n.T("Standard features only. The community database may have more for this monitor."))
 	w.banner.SetButtonLabel("Look up")
 	if m := w.a.cur; m != nil { // say exactly what leaves the machine
 		w.banner.SetTooltipText(fmt.Sprintf("Sends only the model ID (%s-%s-%d) to github.com. Nothing else.", m.Mfg, m.Model, m.Product))
@@ -204,12 +205,12 @@ func (w *window) bannerAction() {
 		return
 	}
 	w.banner.SetSensitive(false) // in flight: no second click, layout stays put
-	w.banner.SetTitle("Looking up " + m.Model + "…")
+	w.banner.SetTitle(i18n.T("Looking up ") + m.Model + "…")
 	a.call("model.fetch", map[string]any{"id": fmt.Sprintf("%s-%s-%d", m.Mfg, m.Model, m.Product)}, nil, func(err error) {
 		w.banner.SetSensitive(true)
 		switch {
 		case err == nil:
-			a.toast("Model file loaded")
+			a.toast(i18n.T("Model file loaded"))
 			var res deck.ListResult
 			a.call("list", deck.Params{}, &res, func(error) { a.setMonitors(res.Monitors) })
 		case strings.Contains(err.Error(), "no community model file"): // Fetch's 404 message
@@ -229,7 +230,7 @@ func (w *window) showStatus(title, detail string) {
 	w.stack.SetVisibleChildName("status")
 	w.sideBox.SetSensitive(false)
 	w.picker.SetVisible(false)
-	w.content.SetTitle("DDC Deck")
+	w.content.SetTitle(i18n.T("DDC Deck"))
 }
 
 // rebuild recreates all pages for the current monitor.
@@ -348,10 +349,10 @@ func buildQuick(w *window) *adw.PreferencesGroup {
 		return nil
 	}
 	g := adw.NewPreferencesGroup()
-	g.SetTitle("Monitors")
+	g.SetTitle(i18n.T("Monitors"))
 	link := adw.NewSwitchRow()
-	link.SetTitle("Link all monitors")
-	link.SetSubtitle("Brightness, contrast and volume sliders move every monitor together")
+	link.SetTitle(i18n.T("Link all monitors"))
+	link.SetSubtitle(i18n.T("Brightness, contrast and volume sliders move every monitor together"))
 	link.SetActive(a.prefs.LinkMonitors)
 	link.NotifyProperty("active", func() {
 		a.prefs.LinkMonitors = link.Active()
@@ -386,7 +387,7 @@ func (a *App) applyProfile(name string) {
 			a.toast(err.Error())
 			return
 		}
-		a.toast("Applied " + name)
+		a.toast(i18n.T("Applied ") + name)
 		a.refreshFresh()
 	})
 }
@@ -404,7 +405,7 @@ func (w *window) refreshPresets() {
 			row := gtk.NewListBoxRow()
 			row.SetChild(l)
 			row.SetName(n)
-			row.SetTooltipText("Apply " + n)
+			row.SetTooltipText(i18n.T("Apply ") + n)
 			w.profList.Append(row)
 		}
 		w.profHead.SetVisible(len(names) > 0)
@@ -432,13 +433,13 @@ func buildEyeCare(w *window) *adw.PreferencesGroup {
 	time.SetPlaceholderText("21:00-07:00")
 	setA11yLabel(time, "On and off times")
 	timeRow := adw.NewActionRow()
-	timeRow.SetTitle("Times")
+	timeRow.SetTitle(i18n.T("Times"))
 	timeRow.AddSuffix(time)
 	timeRow.SetVisible(false)
 	combo.Connect("notify::selected", func() { timeRow.SetVisible(combo.Selected() == 2) })
 
 	level := adw.NewSpinRowWithRange(0, 20, 1)
-	level.SetTitle("Level when scheduled")
+	level.SetTitle(i18n.T("Level when scheduled"))
 	level.SetDigits(0)
 	level.SetValue(20)
 
@@ -451,11 +452,11 @@ func buildEyeCare(w *window) *adw.PreferencesGroup {
 		}
 		return sp
 	}
-	save := gtk.NewButtonWithLabel("Set")
+	save := gtk.NewButtonWithLabel(i18n.T("Set"))
 	save.AddCSSClass("suggested-action")
 	save.SetVAlign(gtk.AlignCenter)
 	save.SetSensitive(false)
-	save.SetTooltipText("Replaces any previous schedule")
+	save.SetTooltipText(i18n.T("Replaces any previous schedule"))
 	baseSpec, baseLevel := "off", 20
 	refresh := func() {
 		save.SetSensitive(spec() != baseSpec || int(level.Value()) != baseLevel)
@@ -475,13 +476,13 @@ func buildEyeCare(w *window) *adw.PreferencesGroup {
 			refresh()
 			a.blueSpec = sp
 			a.updateBlueSub()
-			a.toast("Blue light schedule: " + sp)
+			a.toast(i18n.T("Blue light schedule: ") + sp)
 		})
 	})
 
 	row := adw.NewActionRow()
-	row.SetTitle("Schedule")
-	row.SetSubtitle("Turns the filter on and off by itself")
+	row.SetTitle(i18n.T("Schedule"))
+	row.SetSubtitle(i18n.T("Turns the filter on and off by itself"))
 	sched := gtk.NewBox(gtk.OrientationHorizontal, 8)
 	sched.Append(combo)
 	sched.Append(save)
@@ -547,8 +548,8 @@ func buildInput(w *window) *adw.PreferencesPage {
 		return prefsPage(group(a, b, "KVM", "kvm"))
 	}
 	g := adw.NewPreferencesGroup()
-	g.SetTitle("Input source")
-	g.SetDescription("Switching away from this computer's input turns this screen off.")
+	g.SetTitle(i18n.T("Input source"))
+	g.SetDescription(i18n.T("Switching away from this computer's input turns this screen off."))
 	var lead *gtk.CheckButton
 	checks := map[string]*gtk.CheckButton{}
 	reported := a.cur.Caps[fmt.Sprintf("%02x", f.VCP)] // empty = the monitor didn't say; trust the model file
@@ -586,7 +587,7 @@ func buildInput(w *window) *adw.PreferencesPage {
 		rename := gtk.NewButtonFromIconName("document-edit-symbolic")
 		rename.AddCSSClass("flat")
 		rename.SetVAlign(gtk.AlignCenter)
-		rename.SetTooltipText("Give this input your own name")
+		rename.SetTooltipText(i18n.T("Give this input your own name"))
 		setA11yLabel(rename, "Rename "+valueLabel(k))
 		rename.ConnectClicked(func() { w.renameInputDialog(k, showName) })
 		r.AddSuffix(rename)
@@ -641,8 +642,8 @@ func buildInput(w *window) *adw.PreferencesPage {
 func (w *window) renameInputDialog(key string, changed func()) {
 	a := w.a
 	dlg := adw.NewAlertDialog("Name this input", "Shown instead of “"+valueLabel(key)+"”. Leave empty to go back to the default.")
-	dlg.AddResponse("cancel", "Cancel")
-	dlg.AddResponse("save", "Save")
+	dlg.AddResponse("cancel", i18n.T("Cancel"))
+	dlg.AddResponse("save", i18n.T("Save"))
 	dlg.SetResponseAppearance("save", adw.ResponseSuggested)
 	dlg.SetDefaultResponse("save")
 	e := gtk.NewEntry()
@@ -690,7 +691,7 @@ func buildMonitor(w *window) *adw.PreferencesPage {
 
 	// tier 1: identity, plain words
 	info := adw.NewPreferencesGroup()
-	info.SetTitle("This monitor")
+	info.SetTitle(i18n.T("This monitor"))
 	info.Add(prop("Model", fmt.Sprintf("%s %s", brand(m.Mfg), m.Model)))
 	conn := prop("Connection", connection(m.Connector, m.Bus, a.vals["input"].Name))
 	w.binder.on("input", func(fv deck.FeatureValue) {
@@ -703,26 +704,26 @@ func buildMonitor(w *window) *adw.PreferencesPage {
 	if len(a.mons) > 1 { // with one monitor there is nothing to choose
 		// which monitor the CLI and the rules address when -d is left out (shared config.toml)
 		defRow := adw.NewActionRow()
-		defRow.SetTitle("Default monitor for CLI and rules")
+		defRow.SetTitle(i18n.T("Default monitor for CLI and rules"))
 		pinnedSel := func() string {
 			if s := m.Serial; s != "" {
 				return s
 			}
 			return m.ID
 		}
-		useBtn := gtk.NewButtonWithLabel("Use this monitor")
+		useBtn := gtk.NewButtonWithLabel(i18n.T("Use this monitor"))
 		useBtn.SetVAlign(gtk.AlignCenter)
 		showDefault := func() {
 			pinned := deck.DefaultDisplay()
 			if deck.Match([]*deck.Monitor{m}, pinned) != nil {
-				defRow.SetSubtitle("Pinned to this monitor (" + m.Model + ")")
-				useBtn.SetLabel("Unpin")
+				defRow.SetSubtitle(i18n.T("Pinned to this monitor (") + m.Model + ")")
+				useBtn.SetLabel(i18n.T("Unpin"))
 			} else if pinned != "" {
-				defRow.SetSubtitle("Pinned to “" + pinned + "”")
-				useBtn.SetLabel("Use this monitor")
+				defRow.SetSubtitle(i18n.T("Pinned to “") + pinned + "”")
+				useBtn.SetLabel(i18n.T("Use this monitor"))
 			} else {
-				defRow.SetSubtitle("Not set — the first monitor detected is used")
-				useBtn.SetLabel("Use this monitor")
+				defRow.SetSubtitle(i18n.T("Not set — the first monitor detected is used"))
+				useBtn.SetLabel(i18n.T("Use this monitor"))
 			}
 		}
 		useBtn.ConnectClicked(func() {
@@ -746,7 +747,7 @@ func buildMonitor(w *window) *adw.PreferencesPage {
 
 	// tier 2: vendor support in one place, with the guided way out
 	vendor := adw.NewPreferencesGroup()
-	vendor.SetTitle("Vendor features")
+	vendor.SetTitle(i18n.T("Vendor features"))
 	var known []string
 	for name := range m.Features {
 		if _, std := model.Defaults()[name]; !std {
@@ -761,10 +762,10 @@ func buildMonitor(w *window) *adw.PreferencesPage {
 		}
 	} else {
 		r := adw.NewActionRow()
-		r.SetTitle("No community file for this model")
-		r.SetSubtitle("Standard features only. Look it up in the community database, or map it yourself under Advanced.")
+		r.SetTitle(i18n.T("No community file for this model"))
+		r.SetSubtitle(i18n.T("Standard features only. Look it up in the community database, or map it yourself under Advanced."))
 		id := fmt.Sprintf("%s-%s-%d", m.Mfg, m.Model, m.Product)
-		fetch := gtk.NewButtonWithLabel("Look up")
+		fetch := gtk.NewButtonWithLabel(i18n.T("Look up"))
 		fetch.SetVAlign(gtk.AlignCenter)
 		fetch.SetTooltipText(fmt.Sprintf("Sends only the model ID (%s) to github.com. Nothing else.", id))
 		fetch.ConnectClicked(func() {
@@ -775,7 +776,7 @@ func buildMonitor(w *window) *adw.PreferencesPage {
 					a.toast(err.Error()) // usually: none in the database yet
 					return
 				}
-				a.toast("Model file loaded")
+				a.toast(i18n.T("Model file loaded"))
 				var res deck.ListResult
 				a.call("list", deck.Params{}, &res, func(error) { a.setMonitors(res.Monitors) })
 			})
@@ -787,18 +788,18 @@ func buildMonitor(w *window) *adw.PreferencesPage {
 		vendor.Add(prop("Not available on this monitor", strings.Join(missing, ", ")))
 	}
 	disco := adw.NewActionRow()
-	disco.SetTitle("Map more features")
-	disco.SetSubtitle("Change a setting in the monitor's menu; DDC Deck finds the code behind it.")
-	start := gtk.NewButtonWithLabel("Discover…")
-	start.SetTooltipText("Guided discovery of vendor VCP codes by diffing OSD changes")
+	disco.SetTitle(i18n.T("Map more features"))
+	disco.SetSubtitle(i18n.T("Change a setting in the monitor's menu; DDC Deck finds the code behind it."))
+	start := gtk.NewButtonWithLabel(i18n.T("Discover…"))
+	start.SetTooltipText(i18n.T("Guided discovery of vendor VCP codes by diffing OSD changes"))
 	start.SetVAlign(gtk.AlignCenter)
 	start.ConnectClicked(func() { a.openWizard() })
 	disco.AddSuffix(start)
 
 	// tier 3: jargon behind one collapsed expander
 	adv := adw.NewExpanderRow()
-	adv.SetTitle("Advanced")
-	adv.SetSubtitle("Map features, raw VCP codes, factory reset")
+	adv.SetTitle(i18n.T("Advanced"))
+	adv.SetSubtitle(i18n.T("Map features, raw VCP codes, factory reset"))
 	adv.AddRow(disco)
 	adv.AddRow(prop("Serial number", m.Serial))
 	adv.AddRow(prop("Product code", strconv.Itoa(m.Product)))
@@ -811,15 +812,15 @@ func buildMonitor(w *window) *adw.PreferencesPage {
 	}
 	if _, supported := m.Features["reset"]; supported { // last and apart: never beside the safe actions
 		rst := adw.NewActionRow()
-		rst.SetTitle("Factory reset " + m.Model)
-		rst.SetSubtitle("Every monitor setting back to its defaults; profiles are not affected")
-		btn := gtk.NewButtonWithLabel("Reset…")
+		rst.SetTitle(i18n.T("Factory reset ") + m.Model)
+		rst.SetSubtitle(i18n.T("Every monitor setting back to its defaults; profiles are not affected"))
+		btn := gtk.NewButtonWithLabel(i18n.T("Reset…"))
 		btn.AddCSSClass("destructive-action")
 		btn.SetVAlign(gtk.AlignCenter)
 		btn.ConnectClicked(func() {
 			confirm := adw.NewAlertDialog(fmt.Sprintf("Reset %s (%s)?", m.Model, m.Connector), "Brightness, color and input settings on this monitor go back to factory defaults.")
-			confirm.AddResponse("cancel", "Cancel")
-			confirm.AddResponse("reset", "Reset")
+			confirm.AddResponse("cancel", i18n.T("Cancel"))
+			confirm.AddResponse("reset", i18n.T("Reset"))
 			confirm.SetResponseAppearance("reset", adw.ResponseDestructive)
 			confirm.SetDefaultResponse("cancel")
 			confirm.ConnectResponse(func(answer string) {
@@ -827,7 +828,7 @@ func buildMonitor(w *window) *adw.PreferencesPage {
 					return
 				}
 				a.set("reset", "factory")
-				a.toast("Factory reset sent to " + m.Model)
+				a.toast(i18n.T("Factory reset sent to ") + m.Model)
 				a.refresh() // every value just changed on the monitor itself
 			})
 			confirm.Present(&w.win.Window)
@@ -863,17 +864,17 @@ type diagCheck struct {
 func buildDiagnostics(w *window) *adw.PreferencesGroup {
 	a := w.a
 	g := adw.NewPreferencesGroup()
-	g.SetTitle("Diagnostics")
+	g.SetTitle(i18n.T("Diagnostics"))
 	recheck := gtk.NewButtonFromIconName("view-refresh-symbolic")
 	recheck.AddCSSClass("flat")
 	recheck.SetVAlign(gtk.AlignCenter)
-	recheck.SetTooltipText("Run the checks again")
+	recheck.SetTooltipText(i18n.T("Run the checks again"))
 	setA11yLabel(recheck, "Run the checks again")
 	var cs []diagCheck
 	copyBtn := gtk.NewButtonFromIconName("edit-copy-symbolic")
 	copyBtn.AddCSSClass("flat")
 	copyBtn.SetVAlign(gtk.AlignCenter)
-	copyBtn.SetTooltipText("Copy the report for a bug report")
+	copyBtn.SetTooltipText(i18n.T("Copy the report for a bug report"))
 	setA11yLabel(copyBtn, "Copy the report")
 	copyBtn.SetSensitive(false)
 	copyBtn.ConnectClicked(func() {
@@ -883,7 +884,7 @@ func buildDiagnostics(w *window) *adw.PreferencesGroup {
 			fmt.Fprintf(&sb, "[%s] %s: %s\n", c.State, c.Name, c.Detail)
 		}
 		w.win.Clipboard().SetText(sb.String())
-		a.toast("Report copied")
+		a.toast(i18n.T("Report copied"))
 	})
 	rows := []*adw.ActionRow{}
 	run := func() {
@@ -1017,7 +1018,7 @@ func unmappedRows(a *App) []*adw.ActionRow {
 			for i, v := range values {
 				vs[i] = fmt.Sprintf("%02X", v)
 			}
-			r.SetSubtitle("values: " + strings.Join(vs, " "))
+			r.SetSubtitle(i18n.T("values: ") + strings.Join(vs, " "))
 		}
 		rows = append(rows, r)
 	}
@@ -1029,15 +1030,15 @@ func unmappedRows(a *App) []*adw.ActionRow {
 func rawVCPRows(w *window) []gtk.Widgetter {
 	a := w.a
 	code := adw.NewEntryRow()
-	code.SetTitle("Code (hex, e.g. E6)")
+	code.SetTitle(i18n.T("Code (hex, e.g. E6)"))
 	val := adw.NewEntryRow()
-	val.SetTitle("Value (decimal or 0x…)")
+	val.SetTitle(i18n.T("Value (decimal or 0x…)"))
 	result := adw.NewActionRow()
-	result.SetTitle("Result")
+	result.SetTitle(i18n.T("Result"))
 	result.SetSubtitle("—")
 	result.SetSubtitleSelectable(true)
-	read := gtk.NewButtonWithLabel("Read")
-	write := gtk.NewButtonWithLabel("Write")
+	read := gtk.NewButtonWithLabel(i18n.T("Read"))
+	write := gtk.NewButtonWithLabel(i18n.T("Write"))
 	write.AddCSSClass("destructive-action")
 	for _, btn := range []*gtk.Button{read, write} {
 		btn.SetVAlign(gtk.AlignCenter)
@@ -1060,7 +1061,7 @@ func rawVCPRows(w *window) []gtk.Widgetter {
 				result.SetSubtitle(err.Error())
 				return
 			}
-			result.SetSubtitle("Wrote " + val.Text() + " to " + strings.ToUpper(code.Text()))
+			result.SetSubtitle(i18n.T("Wrote ") + val.Text() + " to " + strings.ToUpper(code.Text()))
 			a.refresh()
 		})
 	})

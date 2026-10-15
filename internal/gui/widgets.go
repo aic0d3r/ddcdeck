@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aic0d3r/ddcdeck/internal/i18n"
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
 	coreglib "github.com/diamondburned/gotk4/pkg/core/glib"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
@@ -149,7 +150,7 @@ func onOffRows(a *App, b *binder, feature string, f model.Feature) []gtk.Widgett
 	sw := adw.NewSwitchRow()
 	sw.SetTitle(title(feature))
 	if feature == "bluelight" {
-		sw.SetSubtitle("Warmer colors for the evening")
+		sw.SetSubtitle(i18n.T("Warmer colors for the evening"))
 		a.blueSwitch, a.blueOn = sw, false
 	}
 	sw.Connect("notify::active", func() {
@@ -212,7 +213,7 @@ func comboRow(a *App, b *binder, feature string, f model.Feature) *adw.ComboRow 
 		}
 		r.SetSelected(sel)
 		if sel == noSelection {
-			r.SetSubtitle("Unknown value 0x" + strconv.FormatInt(int64(fv.Value), 16))
+			r.SetSubtitle(i18n.T("Unknown value 0x") + strconv.FormatInt(int64(fv.Value), 16))
 		} else {
 			r.SetSubtitle("")
 		}

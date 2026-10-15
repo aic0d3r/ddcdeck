@@ -16,6 +16,23 @@ type Config struct {
 	// DefaultDisplay is the monitor used when -d is omitted: index, ID, model, serial
 	// or connector. Empty means "the first one detected".
 	DefaultDisplay string `toml:"default_display,omitempty" json:"default_display"`
+
+	// DDC timing knobs passed to every ddcutil call; for monitors, docks or GPUs that
+	// answer slowly or not at all. Restart the daemon after changing them.
+	SleepMultiplier     float64 `toml:"sleep_multiplier,omitempty" json:"sleep_multiplier"`
+	DisableDynamicSleep bool    `toml:"disable_dynamic_sleep,omitempty" json:"disable_dynamic_sleep"`
+}
+
+// DdcutilArgs are the global ddcutil flags the tuning keys ask for.
+func (c Config) DdcutilArgs() []string {
+	var a []string
+	if c.SleepMultiplier > 0 {
+		a = append(a, "--sleep-multiplier="+strconv.FormatFloat(c.SleepMultiplier, 'f', -1, 64))
+	}
+	if c.DisableDynamicSleep {
+		a = append(a, "--disable-dynamic-sleep")
+	}
+	return a
 }
 
 func ConfigPath() string {

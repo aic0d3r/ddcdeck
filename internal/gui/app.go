@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aic0d3r/ddcdeck/internal/i18n"
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gio/v2"
@@ -324,7 +325,7 @@ func (a *App) status(fresh bool) {
 	var res deck.StatusResult
 	a.call("status", deck.Params{Fresh: fresh}, &res, func(err error) {
 		if err != nil {
-			a.toast("Couldn't read the monitor: " + err.Error())
+			a.toast(i18n.T("Couldn't read the monitor: ") + err.Error())
 			return
 		}
 		if a.cur == nil || a.cur.ID != id {

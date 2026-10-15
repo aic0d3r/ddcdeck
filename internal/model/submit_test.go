@@ -37,6 +37,14 @@ func TestSubmitURL(t *testing.T) {
 	}
 }
 
+func TestReportURL(t *testing.T) {
+	u := ReportURL("AUS-PA279CRV-10209", "works", "ddcdeck v1")
+	q, err := url.ParseQuery(u[strings.Index(u, "?")+1:])
+	if err != nil || q.Get("title") != "Report: AUS-PA279CRV-10209 works" || !strings.Contains(q.Get("body"), "**works**") {
+		t.Fatalf("bad report URL %s (%v)", u, err)
+	}
+}
+
 func TestFetch(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", t.TempDir())
 	const good = "mfg = \"AUS\"\nmodel = \"PA279CRV\"\nproduct = 10209\n\n[feature.bluelight]\nvcp = 0xE6\ntype = \"range\"\nmax = 20\n"

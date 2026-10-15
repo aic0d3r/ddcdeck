@@ -37,6 +37,17 @@ func (m Model) SubmitURL(toml string) string {
 		url.QueryEscape(m.IssueBody(toml)))
 }
 
+// Verdicts a user can report for a model file, in order of good to bad.
+var Verdicts = []string{"works", "partial", "broken"}
+
+// ReportURL is the prefilled "did the model file work?" issue. A maintainer flips
+// `verified` once enough reports agree. Like SubmitURL it uploads nothing by itself.
+func ReportURL(id, verdict, note string) string {
+	body := fmt.Sprintf("Model file `%s`: **%s**\n\n%s\n\n(Run `ddcdeck doctor` and paste anything unusual below.)\n", id, verdict, strings.TrimSpace(note))
+	return fmt.Sprintf("%s/issues/new?title=%s&body=%s", RepoURL,
+		url.QueryEscape(fmt.Sprintf("Report: %s %s", id, verdict)), url.QueryEscape(body))
+}
+
 // repoRaw is the base URL Fetch pulls one model file from; a var so tests can point it
 // at a local server.
 var repoRaw = RepoURL + "/raw/master/data/models"

@@ -55,7 +55,7 @@ func Run(svc *deck.Service) []Check {
 	if raw, err := svc.Handle("list", nil); err != nil {
 		add("monitors", FAIL, err.Error())
 	} else if list, _ := raw.(deck.ListResult); len(list.Monitors) == 0 {
-		add("monitors", FAIL, "none detected — check the cable, and enable DDC/CI in the monitor's own settings menu")
+		add("monitors", FAIL, "none detected — check the cable, and enable DDC/CI in the monitor's own settings menu. "+slowHint)
 	} else {
 		for _, m := range list.Monitors {
 			detail := fmt.Sprintf("%s %s on %s", m.Mfg, m.Model, m.Connector)
@@ -68,7 +68,7 @@ func Run(svc *deck.Service) []Check {
 		first := list.Monitors[0]
 		raw, _ := json.Marshal(deck.Params{Display: first.ID, Feature: "brightness"})
 		if r, err := svc.Handle("get", raw); err != nil {
-			add("read test", FAIL, err.Error()+" — DDC/CI is often disabled in the monitor's menu")
+			add("read test", FAIL, err.Error()+" — DDC/CI is often disabled in the monitor's menu. "+slowHint)
 		} else if fv, ok := r.(deck.FeatureValue); ok {
 			add("read test", OK, fmt.Sprintf("brightness %d/%d on %s", fv.Value, fv.Max, first.Model))
 		}
@@ -98,6 +98,10 @@ func Run(svc *deck.Service) []Check {
 	}
 	return cs
 }
+
+// slowHint is the next thing to try when DDC is enabled but flaky: docks, adapters and some
+// GPU/DisplayPort paths may need longer waits between I2C messages.
+const slowHint = "Behind a dock, adapter or DisplayPort path? Try `sleep_multiplier = 2` (and `disable_dynamic_sleep = true`) in ~/.config/ddcdeck/config.toml, then restart the daemon"
 
 // portalUp reports whether a GlobalShortcuts-capable portal is on the session bus.
 func portalUp() bool {

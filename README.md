@@ -8,11 +8,49 @@ app, hotkeys). Works with any DDC/CI monitor; vendor-specific features come from
 model files.
 
 Status: daemon, CLI, GUI, tray, profiles, rules, shortcuts and the discovery wizard all work.
-Remaining: AUR packaging and more community model files. See [docs/DESIGN.md](docs/DESIGN.md).
+Remaining: prebuilt releases / AUR packaging and more community model files. See
+[docs/DESIGN.md](docs/DESIGN.md). Is your monitor covered? See [docs/MODELS.md](docs/MODELS.md).
+
+## Why DDC Deck
+
+| | `ddcutil` alone | Desktop brightness slider | DDC Deck |
+|---|---|---|---|
+| Brightness, contrast, input, power | yes, by VCP code | brightness only, if at all | yes, by name |
+| Vendor features (blue light, presets, KVM) | you find the codes | no | community model files + a wizard that finds them |
+| Tray quick panel, scroll to dim | no | depends on the desktop | yes |
+| Profiles, sunset/time/dock/app rules, hotkeys | no | no | yes |
+| Several monitors, docks renumbering buses | manual `--bus` | varies | `-d all`, pinned default monitor |
+| Scriptable | yes | no | yes: CLI with JSON and exit codes, socket API |
+
+It drives the monitor's own hardware controls through `ddcutil`; it does not touch the colour
+pipeline (use your desktop's Night Light for software blue-light filtering).
+
+| Desktop | GUI + tray | Global shortcuts | Focused-app rules |
+|---|---|---|---|
+| KDE Plasma (Wayland/X11) | yes | portal | yes (KWin script) |
+| Hyprland, Sway | yes (tray needs a StatusNotifier host, e.g. waybar) | bind keys to the CLI | yes (compositor event stream) |
+| GNOME | yes (tray needs an AppIndicator extension) | portal if available, else the CLI | no |
+| Anything else | CLI and daemon always work | bind keys to the CLI | no |
 
 ## Install
 
 Needs Go and `ddcutil` (your user needs access to `/dev/i2c-*`, e.g. via the `i2c` group).
+
+```sh
+sudo pacman -S ddcutil                # Arch
+sudo apt install ddcutil              # Debian, Ubuntu
+sudo dnf install ddcutil              # Fedora
+sudo usermod -aG i2c $USER            # then log out and in; `ddcdeck doctor` checks it
+# NixOS: hardware.i2c.enable = true; environment.systemPackages = [ pkgs.ddcutil ];
+```
+
+If `ddcdeck doctor` says no monitor answers (docks, adapters, some GPU/DisplayPort paths),
+slow the I2C timing in `~/.config/ddcdeck/config.toml` and restart the daemon:
+
+```toml
+sleep_multiplier = 2          # ddcutil --sleep-multiplier; 1 is the default
+disable_dynamic_sleep = true  # ddcutil --disable-dynamic-sleep
+```
 
 ```sh
 make install           # everything: ddcdeck + ddcdeckd + ddcdeck-gui, tray at login
@@ -168,6 +206,13 @@ monitor detected. Docking renumbers buses, so pinning is what keeps commands and
 screen you mean. The same setting has a button in the GUI's Settings page.
 
 Exit codes: 0 ok, 1 usage, 2 no monitor, 3 feature unsupported, 4 DDC error.
+
+Did a model file work on your monitor? `ddcdeck model report works|partial|broken` opens a
+prefilled issue; reports are how unverified files become verified.
+
+The GUI follows your locale (`LANG`); untranslated text stays English. To add a language, copy
+`internal/i18n/locales/template.toml` to `<lang>.toml` (e.g. `de.toml`) and translate the
+right-hand sides.
 
 Model files: bundled ones live in `data/models/`; drop your own in
 `~/.local/share/ddcdeck/models/*.toml` (they win over bundled ones).

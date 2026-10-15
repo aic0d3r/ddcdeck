@@ -39,5 +39,8 @@ jobs:
       - name: test
         run: go test -race $(go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./...)
 
+      - name: generated files are current
+        run: make generate && git diff --exit-code
+
       - name: build
         run: make build build-gui

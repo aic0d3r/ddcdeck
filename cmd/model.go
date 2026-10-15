@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -91,6 +92,29 @@ func init() {
 			return nil
 		},
 	})
+	report := &cobra.Command{
+		Use:   "report works|partial|broken [MFG-MODEL-PRODUCT]",
+		Short: "Tell the community whether this monitor's model file worked",
+		Long: "Opens a prefilled GitHub issue with your verdict. Reports are how unverified model\n" +
+			"files become verified. Nothing is sent until you press Submit in the browser.",
+		Args: cobra.RangeArgs(1, 2),
+		RunE: func(_ *cobra.Command, a []string) error {
+			if !slices.Contains(model.Verdicts, a[0]) {
+				return fmt.Errorf("verdict must be one of %s", strings.Join(model.Verdicts, ", "))
+			}
+			id, err := modelID(a[1:])
+			if err != nil {
+				return err
+			}
+			u := model.ReportURL(id, a[0], "ddcdeck "+Version)
+			fmt.Println(u)
+			if err := exec.Command("xdg-open", u).Start(); err != nil {
+				fmt.Println("Open the URL in a browser to file the report.")
+			}
+			return nil
+		},
+	}
+	m.AddCommand(report)
 	m.AddCommand(&cobra.Command{
 		Use:   "fetch [MFG-MODEL-PRODUCT]",
 		Short: "Download a community model file for this monitor (opt-in lookup)",

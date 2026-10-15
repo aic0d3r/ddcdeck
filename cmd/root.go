@@ -97,6 +97,7 @@ func newService() (*deck.Service, *automation.Engine, error) {
 	if err != nil {
 		slog.Warn("some model files were skipped", "err", err)
 	}
+	ddcutil.Tuning = deck.LoadConfig().DdcutilArgs()
 	s := deck.New(ddcutil.Backend{}, models)
 	_, err = s.Scan()
 	// automation methods are registered even without the daemon: the CLI fallback and the

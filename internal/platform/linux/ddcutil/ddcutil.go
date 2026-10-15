@@ -17,7 +17,11 @@ import (
 // Backend implements ddc.Backend with the ddcutil binary.
 type Backend struct{}
 
+// Tuning is prepended to every ddcutil call (config.toml sleep_multiplier etc.).
+var Tuning []string
+
 func run(args ...string) (string, error) {
+	args = append(append([]string{}, Tuning...), args...)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	var out, errb bytes.Buffer

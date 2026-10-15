@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/aic0d3r/ddcdeck/internal/deck"
+	"github.com/aic0d3r/ddcdeck/internal/i18n"
 	"github.com/aic0d3r/ddcdeck/internal/model"
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
@@ -68,10 +69,10 @@ func buildAppSettings(w *window) *adw.PreferencesPage {
 	a := w.a
 
 	startup := adw.NewPreferencesGroup()
-	startup.SetTitle("Startup")
+	startup.SetTitle(i18n.T("Startup"))
 	sw := adw.NewSwitchRow()
-	sw.SetTitle("Start at login")
-	sw.SetSubtitle("Opens DDC Deck in the tray so automation keeps running.")
+	sw.SetTitle(i18n.T("Start at login"))
+	sw.SetSubtitle(i18n.T("Opens DDC Deck in the tray so automation keeps running."))
 	_, err := os.Stat(autostartPath())
 	sw.SetActive(err == nil)
 	settingBack := false
@@ -80,7 +81,7 @@ func buildAppSettings(w *window) *adw.PreferencesPage {
 			return
 		}
 		if err := setAutostart(sw.Active()); err != nil {
-			a.toast("Couldn't change start at login: " + err.Error())
+			a.toast(i18n.T("Couldn't change start at login: ") + err.Error())
 			settingBack = true
 			sw.SetActive(!sw.Active())
 			settingBack = false
@@ -89,8 +90,8 @@ func buildAppSettings(w *window) *adw.PreferencesPage {
 	startup.Add(sw)
 
 	closeRow := adw.NewSwitchRow()
-	closeRow.SetTitle("Keep running in the tray when closed")
-	closeRow.SetSubtitle("Off: closing the window quits DDC Deck, and automation stops with it")
+	closeRow.SetTitle(i18n.T("Keep running in the tray when closed"))
+	closeRow.SetSubtitle(i18n.T("Off: closing the window quits DDC Deck, and automation stops with it"))
 	closeRow.SetActive(!a.prefs.QuitOnClose)
 	closeRow.NotifyProperty("active", func() {
 		a.prefs.QuitOnClose = !closeRow.Active()
@@ -99,14 +100,14 @@ func buildAppSettings(w *window) *adw.PreferencesPage {
 	startup.Add(closeRow)
 
 	keys := adw.NewPreferencesGroup()
-	keys.SetTitle("Global shortcuts")
+	keys.SetTitle(i18n.T("Global shortcuts"))
 	a.shortcutRow = adw.NewActionRow()
-	a.shortcutRow.SetTitle("Status")
+	a.shortcutRow.SetTitle(i18n.T("Status"))
 	keys.Add(a.shortcutRow)
 	a.syncShortcutRow()
 
 	about := adw.NewPreferencesGroup()
-	about.SetTitle("About")
+	about.SetTitle(i18n.T("About"))
 	for _, kv := range [][2]string{{"Version", appVersion()}, {"License", "GPL-3.0-only"}} {
 		r := adw.NewActionRow()
 		r.SetTitle(kv[0])
@@ -116,9 +117,9 @@ func buildAppSettings(w *window) *adw.PreferencesPage {
 		about.Add(r)
 	}
 	src := adw.NewActionRow()
-	src.SetTitle("Source code and bug reports")
+	src.SetTitle(i18n.T("Source code and bug reports"))
 	src.SetSubtitle(model.RepoURL)
-	open := gtk.NewButtonWithLabel("Open")
+	open := gtk.NewButtonWithLabel(i18n.T("Open"))
 	open.SetVAlign(gtk.AlignCenter)
 	open.ConnectClicked(func() { gtk.NewURILauncher(model.RepoURL).Launch(context.Background(), &w.win.Window, nil) })
 	src.AddSuffix(open)
@@ -146,7 +147,7 @@ func unverifiedRow(w *window, names []string) *adw.ActionRow {
 	m := w.a.cur
 	id := fmt.Sprintf("%s-%s-%d", m.Mfg, m.Model, m.Product)
 	r := adw.NewActionRow()
-	r.SetTitle("Not verified on hardware")
+	r.SetTitle(i18n.T("Not verified on hardware"))
 	r.SetSubtitle(strings.Join(names, ", ") + " came from a public database and may be wrong for this monitor. Does it work?")
 	box := gtk.NewBox(gtk.OrientationHorizontal, 6)
 	box.SetVAlign(gtk.AlignCenter)
@@ -155,7 +156,7 @@ func unverifiedRow(w *window, names []string) *adw.ActionRow {
 		works bool
 	}{{"Works", true}, {"Doesn't work", false}} {
 		b := gtk.NewButtonWithLabel(c.label)
-		b.SetTooltipText("Opens a prefilled GitHub issue; you review it before sending.")
+		b.SetTooltipText(i18n.T("Opens a prefilled GitHub issue; you review it before sending."))
 		b.ConnectClicked(func() {
 			gtk.NewURILauncher(model.FeedbackURL(id, c.works, names, appVersion())).Launch(context.Background(), &w.win.Window, nil)
 		})
@@ -174,12 +175,12 @@ func (a *App) syncShortcutRow() {
 	switch {
 	case a.shortcutsErr != "":
 		r.SetSubtitle(html.EscapeString(a.shortcutsErr))
-		r.SetTitle("Not active")
+		r.SetTitle(i18n.T("Not active"))
 	case a.shortcutsBound > 0:
-		r.SetTitle("Active")
+		r.SetTitle(i18n.T("Active"))
 		r.SetSubtitle(fmt.Sprintf("%d shortcut(s) registered. Assign keys in System Settings → Shortcuts → DDC Deck.", a.shortcutsBound))
 	default:
-		r.SetTitle("None registered")
-		r.SetSubtitle("Add one from the Input tab or rules.toml")
+		r.SetTitle(i18n.T("None registered"))
+		r.SetSubtitle(i18n.T("Add one from the Input tab or rules.toml"))
 	}
 }

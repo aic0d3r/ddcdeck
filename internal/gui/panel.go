@@ -3,6 +3,7 @@ package gui
 import (
 	"time"
 
+	"github.com/aic0d3r/ddcdeck/internal/i18n"
 	"github.com/diamondburned/gotk4-layer-shell/pkg/gtk4layershell"
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
@@ -43,7 +44,7 @@ func newPanel(a *App, x, y int) *panel {
 	p := &panel{a: a, binder: &binder{}, opened: time.Now()}
 	p.win = gtk.NewWindow()
 	p.win.SetApplication(&a.app.Application)
-	p.win.SetTitle("DDC Deck quick settings")
+	p.win.SetTitle(i18n.T("DDC Deck quick settings"))
 	p.win.SetDefaultSize(panelWidth, -1)
 	p.win.SetResizable(false)
 	if gtk4layershell.IsSupported() {
@@ -67,7 +68,7 @@ func newPanel(a *App, x, y int) *panel {
 	name.SetXAlign(0)
 	head.Append(name)
 	open := gtk.NewButtonFromIconName("view-more-horizontal-symbolic")
-	open.SetTooltipText("Open DDC Deck")
+	open.SetTooltipText(i18n.T("Open DDC Deck"))
 	setA11yLabel(open, "Open DDC Deck")
 	open.AddCSSClass("flat")
 	open.ConnectClicked(func() { p.close(); a.showWindow() })

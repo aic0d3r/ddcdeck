@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/aic0d3r/ddcdeck/internal/i18n"
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
@@ -49,11 +50,11 @@ type ShortcutInfo struct {
 // buildProfiles: apply/list profiles, save the current state as a new one.
 func buildProfiles(w *window) *adw.PreferencesPage {
 	g := adw.NewPreferencesGroup()
-	g.SetTitle("Profiles")
-	g.SetDescription("Saved settings you can apply in one click. A profile only changes the settings it stores.")
+	g.SetTitle(i18n.T("Profiles"))
+	g.SetDescription(i18n.T("Saved settings you can apply in one click. A profile only changes the settings it stores."))
 	w.profGroup = g
 	w.rebuildProfiles()
-	save := gtk.NewButtonWithLabel("Save current as…")
+	save := gtk.NewButtonWithLabel(i18n.T("Save current as…"))
 	save.SetVAlign(gtk.AlignCenter) // unset, it stretches over the whole header
 	save.AddCSSClass("suggested-action")
 	save.ConnectClicked(func() { w.saveProfileDialog() })
@@ -85,9 +86,9 @@ func (w *window) rebuildProfiles() {
 		}
 		if len(res.Profiles) == 0 {
 			r := placeholderRow("No profiles yet", "Save this monitor's settings with “Save current as…”, or start from two examples.")
-			add := gtk.NewButtonWithLabel("Add starters")
+			add := gtk.NewButtonWithLabel(i18n.T("Add starters"))
 			add.SetVAlign(gtk.AlignCenter)
-			add.SetTooltipText("Bright (brightness 80) and Night (brightness 15, blue light filter on). Monitors without a feature skip it.")
+			add.SetTooltipText(i18n.T("Bright (brightness 80) and Night (brightness 15, blue light filter on). Monitors without a feature skip it."))
 			add.ConnectClicked(func() { w.addStarterProfiles(add) })
 			r.AddSuffix(add)
 			w.profRows = append(w.profRows, r)
@@ -107,12 +108,12 @@ func (w *window) rebuildProfiles() {
 			row := adw.NewActionRow()
 			row.SetTitle(p.Name)
 			row.SetSubtitle(strings.Join(parts, " · "))
-			btn := gtk.NewButtonWithLabel("Apply")
+			btn := gtk.NewButtonWithLabel(i18n.T("Apply"))
 			btn.SetVAlign(gtk.AlignCenter)
 			btn.ConnectClicked(func() {
 				w.a.call("profile.apply", map[string]any{"profiles": []string{p.Name}}, nil, func(err error) {
 					if err == nil {
-						w.a.toast("Applied " + p.Name)
+						w.a.toast(i18n.T("Applied ") + p.Name)
 					} else {
 						w.a.toast(err.Error())
 					}
@@ -120,15 +121,15 @@ func (w *window) rebuildProfiles() {
 			})
 			edit := gtk.NewButtonFromIconName("document-edit-symbolic")
 			edit.SetVAlign(gtk.AlignCenter)
-			edit.SetTooltipText("Edit this profile")
+			edit.SetTooltipText(i18n.T("Edit this profile"))
 			edit.ConnectClicked(func() { w.editProfileDialog(profileFromList(p)) })
 			del := gtk.NewButtonFromIconName("user-trash-symbolic")
 			del.SetVAlign(gtk.AlignCenter)
-			del.SetTooltipText("Remove this profile")
+			del.SetTooltipText(i18n.T("Remove this profile"))
 			del.ConnectClicked(func() {
 				confirm := adw.NewAlertDialog("Remove "+p.Name+"?", "The stored settings are deleted. The monitor keeps its current values.")
-				confirm.AddResponse("cancel", "Cancel")
-				confirm.AddResponse("remove", "Remove")
+				confirm.AddResponse("cancel", i18n.T("Cancel"))
+				confirm.AddResponse("remove", i18n.T("Remove"))
 				confirm.SetResponseAppearance("remove", adw.ResponseDestructive)
 				confirm.SetDefaultResponse("cancel")
 				confirm.ConnectResponse(func(answer string) {
@@ -140,7 +141,7 @@ func (w *window) rebuildProfiles() {
 							w.a.toast(err.Error())
 							return
 						}
-						w.a.toast("Removed " + p.Name)
+						w.a.toast(i18n.T("Removed ") + p.Name)
 						w.rebuildProfiles()
 					})
 				})
@@ -193,14 +194,14 @@ func (w *window) saveProfileDialog() {
 
 	nameGroup := adw.NewPreferencesGroup()
 	name := adw.NewEntryRow()
-	name.SetTitle("Profile name")
+	name.SetTitle(i18n.T("Profile name"))
 	name.ConnectChanged(func() { save.SetSensitive(strings.TrimSpace(name.Text()) != "") })
 	nameGroup.Add(name)
 	page.Add(nameGroup)
 
 	fields := adw.NewPreferencesGroup()
-	fields.SetTitle("Settings to store")
-	fields.SetDescription("From " + a.cur.Model + ". Applying a profile changes only what is ticked here.")
+	fields.SetTitle(i18n.T("Settings to store"))
+	fields.SetDescription(i18n.T("From ") + a.cur.Model + ". Applying a profile changes only what is ticked here.")
 	checks := map[string]*adw.SwitchRow{}
 	for _, f := range profileFeatures(a.cur) {
 		r := adw.NewSwitchRow()
@@ -216,8 +217,8 @@ func (w *window) saveProfileDialog() {
 	if len(a.mons) > 1 {
 		g := adw.NewPreferencesGroup()
 		all = adw.NewSwitchRow()
-		all.SetTitle("Every connected monitor")
-		all.SetSubtitle("Stores each monitor's own values; applying sets them all")
+		all.SetTitle(i18n.T("Every connected monitor"))
+		all.SetSubtitle(i18n.T("Stores each monitor's own values; applying sets them all"))
 		g.Add(all)
 		page.Add(g)
 	}
@@ -230,7 +231,7 @@ func (w *window) saveProfileDialog() {
 			}
 		}
 		if len(picked) == 0 {
-			a.toast("Tick at least one setting")
+			a.toast(i18n.T("Tick at least one setting"))
 			return
 		}
 		n := strings.TrimSpace(name.Text())
@@ -239,7 +240,7 @@ func (w *window) saveProfileDialog() {
 				a.toast(err.Error())
 				return
 			}
-			a.toast("Saved " + n)
+			a.toast(i18n.T("Saved ") + n)
 			w.rebuildProfiles()
 		})
 		dlg.Close()
@@ -264,7 +265,7 @@ func (w *window) formDialog(title, saveLabel string, width, height int) (*adw.Di
 	hb := adw.NewHeaderBar()
 	hb.SetShowStartTitleButtons(false)
 	hb.SetShowEndTitleButtons(false)
-	cancel := gtk.NewButtonWithLabel("Cancel")
+	cancel := gtk.NewButtonWithLabel(i18n.T("Cancel"))
 	cancel.ConnectClicked(func() { dlg.Close() })
 	save := gtk.NewButtonWithLabel(saveLabel)
 	save.AddCSSClass("suggested-action")
@@ -290,11 +291,11 @@ func profileFeatures(m *deck.Monitor) []string {
 func buildAutomation(w *window) *adw.PreferencesPage {
 	a := w.a
 	auto := adw.NewPreferencesGroup()
-	auto.SetTitle("Automation")
-	auto.SetDescription("Rules and sun times run by themselves. Pausing stops them; manual changes always work.")
+	auto.SetTitle(i18n.T("Automation"))
+	auto.SetDescription(i18n.T("Rules and sun times run by themselves. Pausing stops them; manual changes always work."))
 	sw := adw.NewSwitchRow()
-	sw.SetTitle("Run automation")
-	sw.SetSubtitle("Off pauses every rule below")
+	sw.SetTitle(i18n.T("Run automation"))
+	sw.SetSubtitle(i18n.T("Off pauses every rule below"))
 	sw.Connect("notify::active", func() {
 		if !a.syncing {
 			a.setAuto(sw.Active())
@@ -304,9 +305,9 @@ func buildAutomation(w *window) *adw.PreferencesPage {
 	auto.Add(sw)
 
 	a.placeRow = adw.NewActionRow()
-	a.placeRow.SetTitle("City for sunset and sunrise")
+	a.placeRow.SetTitle(i18n.T("City for sunset and sunrise"))
 	entry := gtk.NewEntry()
-	entry.SetPlaceholderText("City or 52.37 4.90")
+	entry.SetPlaceholderText(i18n.T("City or 52.37 4.90"))
 	entry.SetWidthChars(20)
 	entry.SetVAlign(gtk.AlignCenter) // else it stretches to the row's full height
 	setA11yLabel(entry, "Location: city or coordinates")
@@ -321,7 +322,7 @@ func buildAutomation(w *window) *adw.PreferencesPage {
 				a.toast(err.Error())
 				return
 			}
-			a.toast("Location saved")
+			a.toast(i18n.T("Location saved"))
 			entry.SetText("")
 		})
 	}
@@ -330,7 +331,7 @@ func buildAutomation(w *window) *adw.PreferencesPage {
 			setLoc(map[string]any{"query": q})
 		}
 	})
-	btn := gtk.NewButtonWithLabel("Set")
+	btn := gtk.NewButtonWithLabel(i18n.T("Set"))
 	btn.SetVAlign(gtk.AlignCenter)
 	btn.SetSensitive(false) // nothing typed, nothing to set
 	entry.Connect("changed", func() { btn.SetSensitive(strings.TrimSpace(entry.Text()) != "") })
@@ -348,17 +349,17 @@ func buildAutomation(w *window) *adw.PreferencesPage {
 	a.loadZones()
 
 	rules := adw.NewPreferencesGroup()
-	rules.SetTitle("Rules")
-	rules.SetDescription("When something happens, apply a profile")
-	add := gtk.NewButtonWithLabel("Add…")
+	rules.SetTitle(i18n.T("Rules"))
+	rules.SetDescription(i18n.T("When something happens, apply a profile"))
+	add := gtk.NewButtonWithLabel(i18n.T("Add…"))
 	add.SetVAlign(gtk.AlignCenter)
 	add.ConnectClicked(func() { w.addRuleDialog() })
 	rules.SetHeaderSuffix(add)
 	a.rulesGroup = rules
 
 	sc := adw.NewPreferencesGroup()
-	sc.SetTitle("Shortcuts")
-	sc.SetDescription("Global shortcuts are assigned in System Settings → Shortcuts → DDC Deck")
+	sc.SetTitle(i18n.T("Shortcuts"))
+	sc.SetDescription(i18n.T("Global shortcuts are assigned in System Settings → Shortcuts → DDC Deck"))
 	a.shortcutsGroup = sc
 
 	return prefsPage(auto, rules, sc)
@@ -389,7 +390,7 @@ func (a *App) refreshAutomation() {
 			if res.LocationName != "" {
 				now = res.LocationName + " — " + now
 			}
-			a.placeRow.SetSubtitle("Sun times use: " + now)
+			a.placeRow.SetSubtitle(i18n.T("Sun times use: ") + now)
 		}
 		clearGroup(a.rulesGroup, &a.ruleRows)
 		if a.rulesGroup != nil {
@@ -428,7 +429,7 @@ func (a *App) refreshAutomation() {
 				})
 				del := gtk.NewButtonFromIconName("user-trash-symbolic")
 				del.SetVAlign(gtk.AlignCenter)
-				del.SetTooltipText("Remove this rule")
+				del.SetTooltipText(i18n.T("Remove this rule"))
 				del.AddCSSClass("flat")
 				setA11yLabel(del, "Remove rule "+ruleLabel(rule))
 				id := rule.ID
@@ -438,7 +439,7 @@ func (a *App) refreshAutomation() {
 							a.toast(err.Error())
 							return
 						}
-						a.toast("Rule removed")
+						a.toast(i18n.T("Rule removed"))
 						a.refreshAutomation()
 					})
 				})
@@ -457,9 +458,9 @@ func (a *App) refreshAutomation() {
 				r := adw.NewActionRow()
 				r.SetTitle(fmt.Sprintf("%s → %s", s.Keys, s.Action))
 				if s.Default {
-					r.SetSubtitle("suggested — assign the keys in the system settings, or add your own [[shortcut]]")
+					r.SetSubtitle(i18n.T("suggested — assign the keys in the system settings, or add your own [[shortcut]]"))
 				} else {
-					r.SetSubtitle("assign the keys in the system settings")
+					r.SetSubtitle(i18n.T("assign the keys in the system settings"))
 				}
 				a.addShortcutRow(r)
 			}
@@ -517,7 +518,7 @@ func (a *App) saveLocation(lat, lon float64) {
 			a.toast(err.Error())
 			return
 		}
-		a.toast("Location saved")
+		a.toast(i18n.T("Location saved"))
 	})
 }
 
@@ -546,7 +547,7 @@ func (w *window) addRuleDialog() {
 	a := w.a
 	a.profileNames(func(profiles []string) {
 		if len(profiles) == 0 {
-			a.toast("Save a profile first — a rule applies one")
+			a.toast(i18n.T("Save a profile first — a rule applies one"))
 			return
 		}
 		triggers := []struct{ label, when string }{
@@ -563,19 +564,19 @@ func (w *window) addRuleDialog() {
 			labels[i] = t.label
 		}
 		trig := adw.NewComboRow()
-		trig.SetTitle("When")
+		trig.SetTitle(i18n.T("When"))
 		trig.SetModel(gtk.NewStringList(labels))
 
 		clock := adw.NewEntryRow()
-		clock.SetTitle("Time (24-hour, like 21:30)")
+		clock.SetTitle(i18n.T("Time (24-hour, like 21:30)"))
 		clock.SetVisible(false) // only for "Every day at a set time"
 
 		prof := adw.NewComboRow()
-		prof.SetTitle("Apply profile")
+		prof.SetTitle(i18n.T("Apply profile"))
 		prof.SetModel(gtk.NewStringList(profiles))
 
 		g := adw.NewPreferencesGroup()
-		g.SetDescription("When the trigger happens, the profile is applied automatically.")
+		g.SetDescription(i18n.T("When the trigger happens, the profile is applied automatically."))
 		g.Add(trig)
 		g.Add(clock)
 		g.Add(prof)
@@ -622,7 +623,7 @@ func (w *window) addRuleDialog() {
 					a.toast(err.Error())
 					return
 				}
-				a.toast("Rule added: " + t.label + " → " + name)
+				a.toast(i18n.T("Rule added: ") + t.label + " → " + name)
 				a.refreshAutomation()
 			})
 			dlg.Close()
@@ -673,7 +674,7 @@ func (w *window) editProfileDialog(p struct {
 
 	nameGroup := adw.NewPreferencesGroup()
 	name := adw.NewEntryRow()
-	name.SetTitle("Name")
+	name.SetTitle(i18n.T("Name"))
 	name.SetText(p.Name)
 	name.ConnectChanged(func() { save.SetSensitive(strings.TrimSpace(name.Text()) != "") })
 	nameGroup.Add(name)
@@ -693,7 +694,7 @@ func (w *window) editProfileDialog(p struct {
 		}
 		g.SetTitle(who)
 		if i == 0 {
-			g.SetDescription("Untick a setting to drop it from the profile.")
+			g.SetDescription(i18n.T("Untick a setting to drop it from the profile."))
 		}
 		for _, fname := range keysOf(sec.Fields) {
 			chk := gtk.NewCheckButton()
@@ -765,7 +766,7 @@ func (w *window) editProfileDialog(p struct {
 			out.Monitors = append(out.Monitors, secOut{Match: p.Monitors[i].Match, Fields: fields, OnApply: p.Monitors[i].OnApply})
 		}
 		if kept == 0 {
-			a.toast("A profile needs at least one setting")
+			a.toast(i18n.T("A profile needs at least one setting"))
 			return
 		}
 		a.call("profile.set", map[string]any{"profile": out, "old_name": p.Name}, nil, func(err error) {
@@ -773,7 +774,7 @@ func (w *window) editProfileDialog(p struct {
 				a.toast(err.Error())
 				return
 			}
-			a.toast("Saved " + newName)
+			a.toast(i18n.T("Saved ") + newName)
 			w.rebuildProfiles()
 		})
 		dlg.Close()
