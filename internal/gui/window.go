@@ -15,6 +15,7 @@ import (
 
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
 	coreglib "github.com/diamondburned/gotk4/pkg/core/glib"
+	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 	"github.com/diamondburned/gotk4/pkg/pango"
 
@@ -43,26 +44,27 @@ func pageList() []page {
 }
 
 type window struct {
-	a         *App
-	win       *adw.ApplicationWindow
-	toasts    *adw.ToastOverlay
-	split     *adw.NavigationSplitView
-	sidebar   *gtk.ListBox
-	rows      []*gtk.ListBoxRow
-	content   *adw.NavigationPage
-	stack     *gtk.Stack
-	status    *adw.StatusPage
-	picker    *gtk.DropDown
-	pickerH   coreglib.SignalHandle // handler id, blocked while the model is replaced
-	banner    *adw.Banner
-	bannerFor string // monitor ID the banner text was last set for (a new monitor starts at the lookup offer)
-	notFound  bool   // lookup came back empty: the banner now offers discovery
-	profGroup *adw.PreferencesGroup
-	profRows  []*adw.ActionRow
-	profList  *gtk.ListBox // sidebar: one-tap profiles
-	profHead  *gtk.Label
-	sideBox   *gtk.Box
-	binder    *binder
+	a           *App
+	win         *adw.ApplicationWindow
+	toasts      *adw.ToastOverlay
+	split       *adw.NavigationSplitView
+	sidebar     *gtk.ListBox
+	rows        []*gtk.ListBoxRow
+	content     *adw.NavigationPage
+	stack       *gtk.Stack
+	status      *adw.StatusPage
+	picker      *gtk.DropDown
+	pickerH     coreglib.SignalHandle // handler id, blocked while the model is replaced
+	banner      *adw.Banner
+	bannerFor   string // monitor ID the banner text was last set for (a new monitor starts at the lookup offer)
+	notFound    bool   // lookup came back empty: the banner now offers discovery
+	profGroup   *adw.PreferencesGroup
+	profRows    []*adw.ActionRow
+	profList    *gtk.ListBox // sidebar: one-tap profiles
+	profHead    *gtk.Label
+	sideBox     *gtk.Box
+	dialogShown bool
+	binder      *binder
 }
 
 func newWindow(a *App) *window {
@@ -257,6 +259,10 @@ func (w *window) rebuild() {
 	}
 	if want := os.Getenv("DDCDECK_PAGE"); want != "" && w.stack.ChildByName(want) != nil {
 		first = want // self-check/screenshot affordance; unset in normal use
+	}
+	if d := os.Getenv("DDCDECK_DIALOG"); d != "" && !w.dialogShown { // screenshot affordance: open one dialog
+		w.dialogShown = true
+		glib.TimeoutAdd(1500, func() bool { w.debugDialog(d); return false })
 	}
 
 	names := make([]string, len(a.mons))
@@ -645,6 +651,7 @@ func (w *window) renameInputDialog(key string, changed func()) {
 	setA11yLabel(e, "Input name")
 	e.SetActivatesDefault(true)
 	dlg.SetExtraChild(e)
+	dlg.SetFocus(e)
 	id := a.cur.ID
 	dlg.ConnectResponse(func(answer string) {
 		if answer != "save" {

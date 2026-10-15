@@ -200,6 +200,10 @@ func (w *window) saveProfileDialog() {
 	name.SetPlaceholderText("Profile name")
 	setA11yLabel(name, "Profile name")
 	box.Append(name)
+	name.SetActivatesDefault(true)
+	dlg.SetResponseEnabled("save", false) // nothing to save under an empty name
+	name.Connect("changed", func() { dlg.SetResponseEnabled("save", strings.TrimSpace(name.Text()) != "") })
+	dlg.SetFocus(name)
 	var all *gtk.CheckButton
 	if len(a.mons) > 1 {
 		all = gtk.NewCheckButtonWithLabel("Store every connected monitor")
@@ -207,10 +211,11 @@ func (w *window) saveProfileDialog() {
 		box.Append(all)
 	}
 	checks := map[string]*gtk.CheckButton{}
-	for _, f := range sortedFeatureNames(a.cur) {
+	for _, f := range profileFeatures(a.cur) {
 		c := gtk.NewCheckButton()
 		c.SetLabel(title(f))
-		c.SetActive(true)
+		// switching input or power from a one-click profile can blank the screen: opt in
+		c.SetActive(f != "input" && f != "power" && f != "kvm")
 		checks[f] = c
 		box.Append(c)
 	}
@@ -224,7 +229,7 @@ func (w *window) saveProfileDialog() {
 			return
 		}
 		var fields []string
-		for _, f := range sortedFeatureNames(a.cur) {
+		for _, f := range profileFeatures(a.cur) {
 			if checks[f].Active() {
 				fields = append(fields, f)
 			}
@@ -242,6 +247,11 @@ func (w *window) saveProfileDialog() {
 }
 
 func sortedFeatureNames(m *deck.Monitor) []string { return slices.Sorted(maps.Keys(m.Features)) }
+
+// profileFeatures are the features a profile can store: reset is an action, not a setting.
+func profileFeatures(m *deck.Monitor) []string {
+	return slices.DeleteFunc(sortedFeatureNames(m), func(f string) bool { return f == "reset" })
+}
 
 // buildAutomation: pause switch, location, rule list, shortcuts.
 func buildAutomation(w *window) *adw.PreferencesPage {
@@ -568,9 +578,11 @@ func (w *window) addRuleDialog() {
 			gate()
 		})
 
-		box.Append(trigRow)
-		box.Append(timeRow)
-		box.Append(profRow)
+		card := adw.NewPreferencesGroup() // rows sit in a card, like the Edit profile dialog
+		card.Add(trigRow)
+		card.Add(timeRow)
+		card.Add(profRow)
+		box.Append(card)
 		dlg.SetExtraChild(box)
 		gate()
 		dlg.ConnectResponse(func(answer string) {
@@ -643,7 +655,9 @@ func (w *window) editProfileDialog(p struct {
 	nameRow := adw.NewActionRow()
 	nameRow.SetTitle("Name")
 	nameRow.AddSuffix(name)
-	box.Append(nameRow)
+	nameCard := adw.NewPreferencesGroup()
+	nameCard.Add(nameRow)
+	box.Append(nameCard)
 
 	type field struct {
 		check  *gtk.CheckButton
@@ -684,7 +698,11 @@ func (w *window) editProfileDialog(p struct {
 					if !slices.Contains(names, v) { // a name this monitor doesn't list: keep it choosable
 						names = append(names, v)
 					}
-					drop := gtk.NewDropDownFromStrings(names)
+					shown := make([]string, len(names))
+					for i, n := range names {
+						shown[i] = valueLabel(n) // "6500 K", not "6500k"
+					}
+					drop := gtk.NewDropDownFromStrings(shown)
 					slim(drop, "flat")
 					drop.SetSelected(uint(max(slices.Index(names, v), 0)))
 					setA11yLabel(drop, title(fname)+" value")
@@ -709,7 +727,12 @@ func (w *window) editProfileDialog(p struct {
 			fields map[string]*field
 		}{s.match, s.fields})
 	}
-	dlg.SetExtraChild(box)
+	scroll := gtk.NewScrolledWindow() // many fields: scroll inside the dialog, don't outgrow the window
+	scroll.SetPropagateNaturalHeight(true)
+	scroll.SetMaxContentHeight(420)
+	scroll.SetPolicy(gtk.PolicyNever, gtk.PolicyAutomatic)
+	scroll.SetChild(box)
+	dlg.SetExtraChild(scroll)
 	dlg.ConnectResponse(func(answer string) {
 		if answer != "save" {
 			return

@@ -503,7 +503,10 @@ func (s *Service) handle(method string, raw json.RawMessage, wait *func() error)
 		return ListResult{APIVersion, mons}, nil
 	case "status":
 		var codes []byte
-		for _, f := range m.Features {
+		for name, f := range m.Features {
+			if name == "reset" {
+				continue // write-only: many monitors reject reading it, failing the whole batch
+			}
 			codes = append(codes, byte(f.VCP))
 		}
 		vals, err := s.read(m, p.Fresh, codes...)
