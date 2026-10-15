@@ -412,9 +412,24 @@ func (a *App) refreshAutomation() {
 					sub += " · from the Eye care schedule on the Display tab"
 				}
 				r.SetSubtitle(sub)
+				apply := rule.Apply
+				a.profileNames(func(have []string) { // a rule whose profile is gone fires into nothing: say so
+					var gone []string
+					for _, n := range apply {
+						if !slices.Contains(have, n) {
+							gone = append(gone, n)
+						}
+					}
+					if len(gone) > 0 {
+						r.AddPrefix(gtk.NewImageFromIconName("dialog-warning-symbolic"))
+						r.SetSubtitle(html.EscapeString("Missing profile " + strings.Join(gone, ", ") + ": nothing will happen. " + sub))
+					}
+				})
 				del := gtk.NewButtonFromIconName("user-trash-symbolic")
 				del.SetVAlign(gtk.AlignCenter)
 				del.SetTooltipText("Remove this rule")
+				del.AddCSSClass("flat")
+				setA11yLabel(del, "Remove rule "+ruleLabel(rule))
 				id := rule.ID
 				del.ConnectClicked(func() {
 					a.call("rule.rm", map[string]any{"id": id}, nil, func(err error) {
@@ -528,104 +543,77 @@ func placeholderRow(title, subtitle string) *adw.ActionRow {
 // and hotplug. App rules (class lists) stay in rules.toml.
 func (w *window) addRuleDialog() {
 	a := w.a
-	var res struct {
-		Profiles []struct {
-			Name string `json:"name"`
-		} `json:"profiles"`
-	}
-	a.call("profile.list", map[string]any{}, &res, func(err error) {
-		if err != nil {
-			a.toast(err.Error())
-			return
-		}
-		if len(res.Profiles) == 0 {
+	a.profileNames(func(profiles []string) {
+		if len(profiles) == 0 {
 			a.toast("Save a profile first — a rule applies one")
 			return
 		}
 		triggers := []struct{ label, when string }{
 			{"At sunset", "sunset"},
 			{"At sunrise", "sunrise"},
-			{"Every day at", "time"},
+			{"Every day at a set time", "time"},
 			{"When a monitor connects", "connected"},
 			{"When a monitor disconnects", "disconnected"},
 		}
-		profiles := make([]string, len(res.Profiles))
-		for i, p := range res.Profiles {
-			profiles[i] = p.Name
-		}
-
-		dlg := adw.NewAlertDialog("Add rule", "When this happens, apply a profile")
-		dlg.AddResponse("cancel", "Cancel")
-		dlg.AddResponse("add", "Add")
-		dlg.SetResponseAppearance("add", adw.ResponseSuggested)
-		dlg.SetDefaultResponse("add")
-
-		box := gtk.NewBox(gtk.OrientationVertical, 12)
-		box.SetMarginTop(6)
+		dlg, page, add := w.formDialog("New rule", "Add", 440, 290)
 
 		labels := make([]string, len(triggers))
 		for i, t := range triggers {
 			labels[i] = t.label
 		}
-		trig := gtk.NewDropDownFromStrings(labels)
-		slim(trig, "flat")
-		setA11yLabel(trig, "Trigger")
-		trigRow := adw.NewActionRow()
-		trigRow.SetTitle("Trigger")
-		trigRow.AddSuffix(trig)
-		trigRow.SetActivatableWidget(trig)
+		trig := adw.NewComboRow()
+		trig.SetTitle("When")
+		trig.SetModel(gtk.NewStringList(labels))
 
-		time := gtk.NewEntry()
-		time.SetPlaceholderText("21:30")
-		setA11yLabel(time, "Time of day")
-		timeRow := adw.NewActionRow()
-		timeRow.SetTitle("Time")
-		timeRow.SetSubtitle("24-hour clock, like 21:30")
-		timeRow.AddSuffix(time)
-		timeRow.SetVisible(false) // only for "Every day at"
+		clock := adw.NewEntryRow()
+		clock.SetTitle("Time (24-hour, like 21:30)")
+		clock.SetVisible(false) // only for "Every day at a set time"
 
-		prof := gtk.NewDropDownFromStrings(profiles)
-		slim(prof, "flat")
-		setA11yLabel(prof, "Profile to apply")
-		profRow := adw.NewActionRow()
-		profRow.SetTitle("Apply profile")
-		profRow.AddSuffix(prof)
-		profRow.SetActivatableWidget(prof)
+		prof := adw.NewComboRow()
+		prof.SetTitle("Apply profile")
+		prof.SetModel(gtk.NewStringList(profiles))
 
-		valid := func() bool { // guard Add before the server has to say no
-			if triggers[trig.Selected()].when != "time" {
-				return true
-			}
-			h, m, ok := strings.Cut(strings.TrimSpace(time.Text()), ":")
+		g := adw.NewPreferencesGroup()
+		g.SetDescription("When the trigger happens, the profile is applied automatically.")
+		g.Add(trig)
+		g.Add(clock)
+		g.Add(prof)
+		page.Add(g)
+
+		validTime := func() bool {
+			h, m, ok := strings.Cut(strings.TrimSpace(clock.Text()), ":")
 			if !ok {
 				return false
 			}
 			hh, err1 := strconv.Atoi(h)
 			mm, err2 := strconv.Atoi(m)
-			return err1 == nil && err2 == nil && hh < 24 && mm < 60
+			return err1 == nil && err2 == nil && hh >= 0 && hh < 24 && mm >= 0 && mm < 60
 		}
-		gate := func() { dlg.SetResponseEnabled("add", valid()) }
-		time.Connect("changed", gate)
-		trig.Connect("notify::selected", func() {
-			timeRow.SetVisible(triggers[trig.Selected()].when == "time")
+		gate := func() { // guard Add before the server has to say no
+			ok := triggers[trig.Selected()].when != "time" || validTime()
+			add.SetSensitive(ok)
+			if triggers[trig.Selected()].when == "time" && !ok && strings.TrimSpace(clock.Text()) != "" {
+				clock.AddCSSClass("error")
+			} else {
+				clock.RemoveCSSClass("error")
+			}
+		}
+		clock.ConnectChanged(gate)
+		trig.NotifyProperty("selected", func() {
+			isTime := triggers[trig.Selected()].when == "time"
+			clock.SetVisible(isTime)
+			if isTime {
+				clock.GrabFocus()
+			}
 			gate()
 		})
-
-		card := adw.NewPreferencesGroup() // rows sit in a card, like the Edit profile dialog
-		card.Add(trigRow)
-		card.Add(timeRow)
-		card.Add(profRow)
-		box.Append(card)
-		dlg.SetExtraChild(box)
 		gate()
-		dlg.ConnectResponse(func(answer string) {
-			if answer != "add" {
-				return
-			}
+
+		doAdd := func() {
 			t := triggers[trig.Selected()]
 			when := t.when
 			if when == "time" {
-				when = strings.TrimSpace(time.Text())
+				when = strings.TrimSpace(clock.Text())
 			}
 			name := profiles[prof.Selected()]
 			a.call("rule.add", map[string]any{"when": when, "apply": []string{name}}, nil, func(err error) {
@@ -636,6 +624,13 @@ func (w *window) addRuleDialog() {
 				a.toast("Rule added: " + t.label + " → " + name)
 				a.refreshAutomation()
 			})
+			dlg.Close()
+		}
+		add.ConnectClicked(doAdd)
+		clock.ConnectEntryActivated(func() {
+			if add.Sensitive() {
+				doAdd()
+			}
 		})
 		dlg.Present(&w.win.Window)
 	})
