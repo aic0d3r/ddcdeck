@@ -2,6 +2,7 @@ package gui
 
 import (
 	"fmt"
+	"html"
 	"maps"
 	"slices"
 	"strconv"
@@ -49,11 +50,11 @@ type ShortcutInfo struct {
 func buildProfiles(w *window) *adw.PreferencesPage {
 	g := adw.NewPreferencesGroup()
 	g.SetTitle("Profiles")
-	g.SetDescription("Partial monitor states. Applying changes only the fields a profile stores.")
+	g.SetDescription("Saved settings you can apply in one click. A profile only changes the settings it stores.")
 	w.profGroup = g
 	w.rebuildProfiles()
 	save := gtk.NewButtonWithLabel("Save current as…")
-	save.SetHAlign(gtk.AlignEnd)
+	save.SetVAlign(gtk.AlignCenter) // unset, it stretches over the whole header
 	save.AddCSSClass("suggested-action")
 	save.ConnectClicked(func() { w.saveProfileDialog() })
 	g.SetHeaderSuffix(save)
@@ -92,7 +93,11 @@ func (w *window) rebuildProfiles() {
 			p := p
 			var parts []string
 			for _, s := range p.Monitors {
-				parts = append(parts, fmt.Sprintf("%s: %s", s.Match, strings.Join(keysOf(s.Fields), ", ")))
+				who := s.Match
+				if who == "*" {
+					who = "Every monitor"
+				}
+				parts = append(parts, fmt.Sprintf("%s: %s", who, strings.Join(keysOf(s.Fields), ", ")))
 			}
 			row := adw.NewActionRow()
 			row.SetTitle(p.Name)
@@ -228,8 +233,8 @@ func buildAutomation(w *window) *adw.PreferencesPage {
 	a.placeRow = adw.NewActionRow()
 	a.placeRow.SetTitle("City for sunset and sunrise")
 	entry := gtk.NewEntry()
-	entry.SetPlaceholderText("Amsterdam, Tokyo, or 52.37 4.90")
-	entry.SetWidthChars(18)
+	entry.SetPlaceholderText("City or 52.37 4.90")
+	entry.SetWidthChars(20)
 	setA11yLabel(entry, "Location: city or coordinates")
 	a.zoneStore = gtk.NewTreeStore([]glib.Type{glib.TypeString})
 	completion := gtk.NewEntryCompletion()
@@ -243,6 +248,7 @@ func buildAutomation(w *window) *adw.PreferencesPage {
 				return
 			}
 			a.toast("Location saved")
+			entry.SetText("")
 		})
 	}
 	entry.Connect("activate", func() {
@@ -251,8 +257,9 @@ func buildAutomation(w *window) *adw.PreferencesPage {
 		}
 	})
 	btn := gtk.NewButtonWithLabel("Set")
-	btn.AddCSSClass("suggested-action")
 	btn.SetVAlign(gtk.AlignCenter)
+	btn.SetSensitive(false) // nothing typed, nothing to set
+	entry.Connect("changed", func() { btn.SetSensitive(strings.TrimSpace(entry.Text()) != "") })
 	btn.ConnectClicked(func() {
 		if q := strings.TrimSpace(entry.Text()); q != "" {
 			setLoc(map[string]any{"query": q})
@@ -328,6 +335,9 @@ func (a *App) refreshAutomation() {
 				if rule.Display != "" {
 					sub += " · " + rule.Display
 				}
+				if rule.ID == bluelightScheduleID {
+					sub += " · from the Eye care schedule on the Display tab"
+				}
 				r.SetSubtitle(sub)
 				del := gtk.NewButtonFromIconName("user-trash-symbolic")
 				del.SetVAlign(gtk.AlignCenter)
@@ -350,7 +360,9 @@ func (a *App) refreshAutomation() {
 		clearGroup(a.shortcutsGroup, &a.shortcutRows)
 		if a.shortcutsGroup != nil {
 			if a.shortcutsErr != "" {
-				a.addShortcutRow(placeholderRow("Global shortcuts unavailable", a.shortcutsErr))
+				warn := placeholderRow("Global shortcuts unavailable", html.EscapeString(a.shortcutsErr))
+				warn.AddPrefix(gtk.NewImageFromIconName("dialog-warning-symbolic"))
+				a.addShortcutRow(warn)
 			}
 			for _, s := range res.Shortcuts {
 				r := adw.NewActionRow()
