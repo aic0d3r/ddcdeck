@@ -188,62 +188,95 @@ func (w *window) saveProfileDialog() {
 	if a.cur == nil {
 		return
 	}
-	dlg := adw.NewAlertDialog("Save profile", "Name and fields to store for "+a.cur.Model)
-	dlg.AddResponse("cancel", "Cancel")
-	dlg.AddResponse("save", "Save")
-	dlg.SetResponseAppearance("save", adw.ResponseSuggested)
-	dlg.SetDefaultResponse("save")
+	dlg, page, save := w.formDialog("Save profile", "Save", 440, 560)
+	save.SetSensitive(false) // nothing to save under an empty name
 
-	box := gtk.NewBox(gtk.OrientationVertical, 6)
-	box.SetMarginTop(6)
-	name := gtk.NewEntry()
-	name.SetPlaceholderText("Profile name")
-	setA11yLabel(name, "Profile name")
-	box.Append(name)
-	name.SetActivatesDefault(true)
-	dlg.SetResponseEnabled("save", false) // nothing to save under an empty name
-	name.Connect("changed", func() { dlg.SetResponseEnabled("save", strings.TrimSpace(name.Text()) != "") })
-	dlg.SetFocus(name)
-	var all *gtk.CheckButton
-	if len(a.mons) > 1 {
-		all = gtk.NewCheckButtonWithLabel("Store every connected monitor")
-		all.SetTooltipText("Saves each monitor's values for the ticked fields; applying sets them all")
-		box.Append(all)
-	}
-	checks := map[string]*gtk.CheckButton{}
+	nameGroup := adw.NewPreferencesGroup()
+	name := adw.NewEntryRow()
+	name.SetTitle("Profile name")
+	name.ConnectChanged(func() { save.SetSensitive(strings.TrimSpace(name.Text()) != "") })
+	nameGroup.Add(name)
+	page.Add(nameGroup)
+
+	fields := adw.NewPreferencesGroup()
+	fields.SetTitle("Settings to store")
+	fields.SetDescription("From " + a.cur.Model + ". Applying a profile changes only what is ticked here.")
+	checks := map[string]*adw.SwitchRow{}
 	for _, f := range profileFeatures(a.cur) {
-		c := gtk.NewCheckButton()
-		c.SetLabel(title(f))
+		r := adw.NewSwitchRow()
+		r.SetTitle(title(f))
 		// switching input or power from a one-click profile can blank the screen: opt in
-		c.SetActive(f != "input" && f != "power" && f != "kvm")
-		checks[f] = c
-		box.Append(c)
+		r.SetActive(f != "input" && f != "power" && f != "kvm")
+		checks[f] = r
+		fields.Add(r)
 	}
-	dlg.SetExtraChild(box)
-	dlg.ConnectResponse(func(answer string) {
-		if answer != "save" {
-			return
-		}
-		if strings.TrimSpace(name.Text()) == "" {
-			a.toast("Profile needs a name")
-			return
-		}
-		var fields []string
+	page.Add(fields)
+
+	var all *adw.SwitchRow
+	if len(a.mons) > 1 {
+		g := adw.NewPreferencesGroup()
+		all = adw.NewSwitchRow()
+		all.SetTitle("Every connected monitor")
+		all.SetSubtitle("Stores each monitor's own values; applying sets them all")
+		g.Add(all)
+		page.Add(g)
+	}
+
+	doSave := func() {
+		var picked []string
 		for _, f := range profileFeatures(a.cur) {
 			if checks[f].Active() {
-				fields = append(fields, f)
+				picked = append(picked, f)
 			}
 		}
-		a.call("profile.save", map[string]any{"name": name.Text(), "fields": fields, "all": all != nil && all.Active()}, nil, func(err error) {
+		if len(picked) == 0 {
+			a.toast("Tick at least one setting")
+			return
+		}
+		n := strings.TrimSpace(name.Text())
+		a.call("profile.save", map[string]any{"name": n, "fields": picked, "all": all != nil && all.Active()}, nil, func(err error) {
 			if err != nil {
 				a.toast(err.Error())
 				return
 			}
-			a.toast("Saved " + name.Text())
+			a.toast("Saved " + n)
 			w.rebuildProfiles()
 		})
+		dlg.Close()
+	}
+	save.ConnectClicked(doSave)
+	name.ConnectEntryActivated(func() {
+		if save.Sensitive() {
+			doSave()
+		}
 	})
+	dlg.SetFocus(name)
 	dlg.Present(&w.win.Window)
+}
+
+// formDialog is the shared shell for long forms: Cancel and Save live in the header bar so
+// they never scroll away, and the body is a scrolling preferences page.
+func (w *window) formDialog(title, saveLabel string, width, height int) (*adw.Dialog, *adw.PreferencesPage, *gtk.Button) {
+	dlg := adw.NewDialog()
+	dlg.SetTitle(title)
+	dlg.SetContentWidth(width)
+	dlg.SetContentHeight(height)
+	hb := adw.NewHeaderBar()
+	hb.SetShowStartTitleButtons(false)
+	hb.SetShowEndTitleButtons(false)
+	cancel := gtk.NewButtonWithLabel("Cancel")
+	cancel.ConnectClicked(func() { dlg.Close() })
+	save := gtk.NewButtonWithLabel(saveLabel)
+	save.AddCSSClass("suggested-action")
+	hb.PackStart(cancel)
+	hb.PackEnd(save)
+	page := adw.NewPreferencesPage()
+	tv := adw.NewToolbarView()
+	tv.AddTopBar(hb)
+	tv.SetContent(page)
+	dlg.SetChild(tv)
+	dlg.SetDefaultWidget(save)
+	return dlg, page, save
 }
 
 func sortedFeatureNames(m *deck.Monitor) []string { return slices.Sorted(maps.Keys(m.Features)) }
@@ -640,57 +673,46 @@ func (w *window) editProfileDialog(p struct {
 	} `json:"monitors"`
 }) {
 	a := w.a
-	dlg := adw.NewAlertDialog("Edit profile", "Rename, adjust values, or untick a field to drop it")
-	dlg.AddResponse("cancel", "Cancel")
-	dlg.AddResponse("save", "Save")
-	dlg.SetResponseAppearance("save", adw.ResponseSuggested)
-	dlg.SetDefaultResponse("save")
+	dlg, page, save := w.formDialog("Edit "+p.Name, "Save", 480, 620)
 
-	box := gtk.NewBox(gtk.OrientationVertical, 12)
-	box.SetMarginTop(6)
-
-	name := gtk.NewEntry()
+	nameGroup := adw.NewPreferencesGroup()
+	name := adw.NewEntryRow()
+	name.SetTitle("Name")
 	name.SetText(p.Name)
-	setA11yLabel(name, "Profile name")
-	nameRow := adw.NewActionRow()
-	nameRow.SetTitle("Name")
-	nameRow.AddSuffix(name)
-	nameCard := adw.NewPreferencesGroup()
-	nameCard.Add(nameRow)
-	box.Append(nameCard)
+	name.ConnectChanged(func() { save.SetSensitive(strings.TrimSpace(name.Text()) != "") })
+	nameGroup.Add(name)
+	page.Add(nameGroup)
 
 	type field struct {
-		check  *gtk.CheckButton
-		editor gtk.Widgetter
-		read   func() any
+		check *gtk.CheckButton
+		read  func() any
 	}
-	sections := []struct {
-		match  string
-		fields map[string]*field
-	}{}
-
-	for _, sec := range p.Monitors {
-		s := struct {
-			match  string
-			fields map[string]*field
-		}{match: sec.Match, fields: map[string]*field{}}
+	sections := make([]map[string]*field, len(p.Monitors))
+	for i, sec := range p.Monitors {
+		sections[i] = map[string]*field{}
 		g := adw.NewPreferencesGroup()
-		g.SetTitle("For " + sec.Match)
+		who := "For " + sec.Match
+		if sec.Match == "*" {
+			who = "For every monitor"
+		}
+		g.SetTitle(who)
+		if i == 0 {
+			g.SetDescription("Untick a setting to drop it from the profile.")
+		}
 		for _, fname := range keysOf(sec.Fields) {
-			fname := fname
-			row := adw.NewActionRow()
-			row.SetTitle(title(fname))
 			chk := gtk.NewCheckButton()
 			chk.SetActive(true)
-			row.AddPrefix(chk)
+			chk.SetVAlign(gtk.AlignCenter)
+			setA11yLabel(chk, "Keep "+title(fname))
+			var row gtk.Widgetter
 			var rd func() any
 			switch v := sec.Fields[fname].(type) {
 			case float64: // JSON number: a range value
-				spin := gtk.NewSpinButtonWithRange(0, 65535, 1)
-				spin.SetValue(v)
-				setA11yLabel(spin, title(fname)+" value")
-				row.AddSuffix(spin)
-				rd = func() any { return int(spin.Value()) }
+				sp := adw.NewSpinRowWithRange(0, 65535, 1)
+				sp.SetTitle(title(fname))
+				sp.SetValue(v)
+				sp.AddPrefix(chk)
+				row, rd = sp, func() any { return int(sp.Value()) }
 			case string: // an enum value name: offer the monitor's values when we know them
 				f, known := a.cur.Features[fname]
 				if known && len(f.Values) > 0 {
@@ -699,49 +721,33 @@ func (w *window) editProfileDialog(p struct {
 						names = append(names, v)
 					}
 					shown := make([]string, len(names))
-					for i, n := range names {
-						shown[i] = valueLabel(n) // "6500 K", not "6500k"
+					for j, n := range names {
+						shown[j] = valueLabel(n) // "6500 K", not "6500k"
 					}
-					drop := gtk.NewDropDownFromStrings(shown)
-					slim(drop, "flat")
-					drop.SetSelected(uint(max(slices.Index(names, v), 0)))
-					setA11yLabel(drop, title(fname)+" value")
-					row.AddSuffix(drop)
-					rd = func() any { return names[drop.Selected()] }
+					cb := adw.NewComboRow()
+					cb.SetTitle(title(fname))
+					cb.SetModel(gtk.NewStringList(shown))
+					cb.SetSelected(uint(max(slices.Index(names, v), 0)))
+					cb.AddPrefix(chk)
+					row, rd = cb, func() any { return names[cb.Selected()] }
 				} else {
-					e := gtk.NewEntry()
-					e.SetText(v)
-					setA11yLabel(e, title(fname)+" value")
-					row.AddSuffix(e)
-					rd = func() any { return e.Text() }
+					er := adw.NewEntryRow()
+					er.SetTitle(title(fname))
+					er.SetText(v)
+					er.AddPrefix(chk)
+					row, rd = er, func() any { return er.Text() }
 				}
 			default:
 				continue
 			}
 			g.Add(row)
-			s.fields[fname] = &field{check: chk, read: rd}
+			sections[i][fname] = &field{check: chk, read: rd}
 		}
-		box.Append(g)
-		sections = append(sections, struct {
-			match  string
-			fields map[string]*field
-		}{s.match, s.fields})
+		page.Add(g)
 	}
-	scroll := gtk.NewScrolledWindow() // many fields: scroll inside the dialog, don't outgrow the window
-	scroll.SetPropagateNaturalHeight(true)
-	scroll.SetMaxContentHeight(420)
-	scroll.SetPolicy(gtk.PolicyNever, gtk.PolicyAutomatic)
-	scroll.SetChild(box)
-	dlg.SetExtraChild(scroll)
-	dlg.ConnectResponse(func(answer string) {
-		if answer != "save" {
-			return
-		}
+
+	save.ConnectClicked(func() {
 		newName := strings.TrimSpace(name.Text())
-		if newName == "" {
-			a.toast("Profile needs a name")
-			return
-		}
 		type secOut struct {
 			Match   string         `json:"match"`
 			Fields  map[string]any `json:"fields"`
@@ -754,16 +760,16 @@ func (w *window) editProfileDialog(p struct {
 		kept := 0
 		for i, sec := range sections {
 			fields := map[string]any{}
-			for fname, f := range sec.fields {
+			for fname, f := range sec {
 				if f.check.Active() {
 					fields[fname] = f.read()
 					kept++
 				}
 			}
-			out.Monitors = append(out.Monitors, secOut{Match: sec.match, Fields: fields, OnApply: p.Monitors[i].OnApply})
+			out.Monitors = append(out.Monitors, secOut{Match: p.Monitors[i].Match, Fields: fields, OnApply: p.Monitors[i].OnApply})
 		}
 		if kept == 0 {
-			a.toast("A profile needs at least one field")
+			a.toast("A profile needs at least one setting")
 			return
 		}
 		a.call("profile.set", map[string]any{"profile": out, "old_name": p.Name}, nil, func(err error) {
@@ -771,13 +777,10 @@ func (w *window) editProfileDialog(p struct {
 				a.toast(err.Error())
 				return
 			}
-			if newName != p.Name {
-				a.toast("Saved as " + newName)
-			} else {
-				a.toast("Saved " + newName)
-			}
+			a.toast("Saved " + newName)
 			w.rebuildProfiles()
 		})
+		dlg.Close()
 	})
 	dlg.Present(&w.win.Window)
 }
