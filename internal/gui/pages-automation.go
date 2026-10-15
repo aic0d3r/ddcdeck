@@ -84,7 +84,12 @@ func (w *window) rebuildProfiles() {
 			return
 		}
 		if len(res.Profiles) == 0 {
-			r := placeholderRow("No profiles yet", "Use “Save current as…” to store this monitor's settings.")
+			r := placeholderRow("No profiles yet", "Save this monitor's settings with “Save current as…”, or start from two examples.")
+			add := gtk.NewButtonWithLabel("Add starters")
+			add.SetVAlign(gtk.AlignCenter)
+			add.SetTooltipText("Bright (brightness 80) and Night (brightness 15, blue light filter on). Monitors without a feature skip it.")
+			add.ConnectClicked(func() { w.addStarterProfiles(add) })
+			r.AddSuffix(add)
 			w.profRows = append(w.profRows, r)
 			g.Add(r)
 			return
@@ -148,6 +153,31 @@ func (w *window) rebuildProfiles() {
 			g.Add(row)
 		}
 	})
+}
+
+// addStarterProfiles writes two conservative examples for every monitor; unsupported fields are skipped on apply.
+func (w *window) addStarterProfiles(btn *gtk.Button) {
+	a := w.a
+	btn.SetSensitive(false)
+	starters := []struct {
+		name   string
+		fields map[string]any
+	}{
+		{"Bright", map[string]any{"brightness": 80}},
+		{"Night", map[string]any{"brightness": 15, "bluelight": 20}},
+	}
+	pending := len(starters)
+	for _, s := range starters {
+		prof := map[string]any{"name": s.name, "monitors": []map[string]any{{"match": "*", "fields": s.fields}}}
+		a.call("profile.set", map[string]any{"profile": prof}, nil, func(err error) {
+			if err != nil {
+				a.toast(err.Error())
+			}
+			if pending--; pending == 0 {
+				w.rebuildProfiles()
+			}
+		})
+	}
 }
 
 func keysOf(m map[string]any) []string { return slices.Sorted(maps.Keys(m)) }

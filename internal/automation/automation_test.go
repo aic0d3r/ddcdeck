@@ -434,3 +434,16 @@ func TestShortcutAddRmAndSaveAll(t *testing.T) {
 		t.Fatal("removing a missing shortcut should error")
 	}
 }
+
+func TestProfileSetStarter(t *testing.T) { // the GUI's "Add starters" payload
+	e, svc, _ := newEnv(t)
+	Register(svc, e)
+	raw, _ := json.Marshal(map[string]any{"profile": map[string]any{"name": "Night",
+		"monitors": []map[string]any{{"match": "*", "fields": map[string]any{"brightness": 15, "bluelight": 20}}}}})
+	if _, err := svc.Handle("profile.set", raw); err != nil {
+		t.Fatal(err)
+	}
+	if p, err := LoadProfile("Night"); err != nil || len(p.Monitors) != 1 || len(p.Monitors[0].Fields) != 2 {
+		t.Fatalf("%+v %v", p, err)
+	}
+}
