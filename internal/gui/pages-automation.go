@@ -106,11 +106,15 @@ func (w *window) rebuildProfiles() {
 					if who == "*" {
 						who = "Every monitor"
 					}
-					parts = append(parts, fmt.Sprintf("%s: %s", who, strings.Join(keysOf(s.Fields), ", ")))
+					var kv []string
+					for _, k := range keysOf(s.Fields) {
+						kv = append(kv, fmt.Sprintf("%s %v", title(k), s.Fields[k]))
+					}
+					parts = append(parts, who+"\n"+strings.Join(kv, " · "))
 				}
 				row := adw.NewActionRow()
 				row.SetTitle(p.Name)
-				row.SetSubtitle(strings.Join(parts, " · "))
+				row.SetSubtitle(strings.Join(parts, "\n"))
 				btn := gtk.NewButtonWithLabel(i18n.T("Apply"))
 				btn.SetVAlign(gtk.AlignCenter)
 				btn.ConnectClicked(func() {
@@ -151,12 +155,15 @@ func (w *window) rebuildProfiles() {
 					})
 					confirm.Present(&w.win.Window)
 				})
-				row.AddSuffix(w.profileSchedule(p.Name, rules.Rules))
+				sched := adw.NewActionRow()
+				sched.SetTitle(i18n.T("Schedule"))
+				sched.AddSuffix(w.profileSchedule(p.Name, rules.Rules))
 				row.AddSuffix(edit)
 				row.AddSuffix(del)
 				row.AddSuffix(btn)
-				w.profRows = append(w.profRows, row)
+				w.profRows = append(w.profRows, row, sched)
 				g.Add(row)
+				g.Add(sched)
 			}
 		})
 	})
