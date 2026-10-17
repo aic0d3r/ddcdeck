@@ -61,6 +61,7 @@ type window struct {
 	notFound    bool   // lookup came back empty: the banner now offers discovery
 	profGroup   *adw.PreferencesGroup
 	profRows    []*adw.ActionRow
+	eyeSched    *adw.PreferencesGroup // blue light schedule editor: built with Display, shown on Automation
 	profList    *gtk.ListBox // sidebar: one-tap profiles
 	profHead    *gtk.Label
 	sideBox     *gtk.Box
@@ -489,9 +490,23 @@ func buildEyeCare(w *window) *adw.PreferencesGroup {
 	row.AddSuffix(sched)
 	row.SetActivatableWidget(combo)
 
-	g.Add(row)
-	g.Add(timeRow)
-	g.Add(level)
+	// the editor lives on the Automation tab; Display only summarizes it
+	sg := adw.NewPreferencesGroup()
+	sg.SetTitle(i18n.T("Blue light schedule"))
+	sg.SetDescription(i18n.T("Switches the Eye care filter on the Display tab"))
+	sg.Add(row)
+	sg.Add(timeRow)
+	sg.Add(level)
+	w.eyeSched = sg
+
+	summ := adw.NewActionRow()
+	summ.SetTitle(i18n.T("Schedule"))
+	edit := gtk.NewButtonWithLabel(i18n.T("Edit in Automation"))
+	edit.SetVAlign(gtk.AlignCenter)
+	edit.ConnectClicked(func() { w.show("automation") })
+	summ.AddSuffix(edit)
+	a.blueSumm = summ
+	g.Add(summ)
 
 	// reflect what is configured: the schedule rules and the level profile
 	var res RulesInfo

@@ -114,6 +114,11 @@ func (w *window) rebuildProfiles() {
 				}
 				row := adw.NewActionRow()
 				row.SetTitle(p.Name)
+				for _, r := range rules.Rules {
+					if r.ID != bluelightScheduleID && slices.Contains(r.Apply, p.Name) {
+						parts = append(parts, "Applies "+ruleLabel(r)+" (edit in Automation)")
+					}
+				}
 				row.SetSubtitle(strings.Join(parts, "\n"))
 				btn := gtk.NewButtonWithLabel(i18n.T("Apply"))
 				btn.SetVAlign(gtk.AlignCenter)
@@ -155,15 +160,11 @@ func (w *window) rebuildProfiles() {
 					})
 					confirm.Present(&w.win.Window)
 				})
-				sched := adw.NewActionRow()
-				sched.SetTitle(i18n.T("Schedule"))
-				sched.AddSuffix(w.profileSchedule(p.Name, rules.Rules))
 				row.AddSuffix(edit)
 				row.AddSuffix(del)
 				row.AddSuffix(btn)
-				w.profRows = append(w.profRows, row, sched)
+				w.profRows = append(w.profRows, row)
 				g.Add(row)
-				g.Add(sched)
 			}
 		})
 	})
@@ -171,89 +172,6 @@ func (w *window) rebuildProfiles() {
 
 // profileScheduleID tags the rule a profile's schedule control owns.
 func profileScheduleID(name string) string { return "profile-schedule:" + name }
-
-// profileSchedule: "apply this profile at sunset / sunrise / a fixed time", the profile
-// twin of the Eye care schedule. Set replaces the profile's previous schedule rule.
-func (w *window) profileSchedule(name string, rules []RuleInfo) *gtk.Box {
-	combo := gtk.NewDropDownFromStrings([]string{"No schedule", "Sunset", "Sunrise", "Fixed time"})
-	slim(combo, "flat")
-	setA11yLabel(combo, "Schedule for "+name)
-	entry := gtk.NewEntry()
-	entry.SetPlaceholderText("21:00")
-	entry.SetWidthChars(5)
-	entry.SetMaxWidthChars(5)
-	entry.SetVAlign(gtk.AlignCenter)
-	setA11yLabel(entry, "Time to apply "+name)
-	entry.SetVisible(false)
-	save := gtk.NewButtonWithLabel(i18n.T("Set"))
-	save.AddCSSClass("suggested-action")
-	save.SetVAlign(gtk.AlignCenter)
-	save.SetSensitive(false)
-	save.SetTooltipText(i18n.T("Replaces this profile's previous schedule"))
-
-	when := func() string {
-		switch combo.Selected() {
-		case 1:
-			return "sunset"
-		case 2:
-			return "sunrise"
-		case 3:
-			return strings.TrimSpace(entry.Text())
-		}
-		return ""
-	}
-	base := ""
-	for _, r := range rules {
-		if r.ID != profileScheduleID(name) {
-			continue
-		}
-		base = r.When
-		switch r.When {
-		case "sunset":
-			combo.SetSelected(1)
-		case "sunrise":
-			combo.SetSelected(2)
-		default:
-			combo.SetSelected(3)
-			entry.SetText(r.When)
-		}
-		entry.SetVisible(combo.Selected() == 3)
-	}
-	refresh := func() { save.SetSensitive(when() != base) }
-	combo.Connect("notify::selected", func() { entry.SetVisible(combo.Selected() == 3); refresh() })
-	entry.Connect("changed", refresh)
-
-	save.ConnectClicked(func() {
-		wh := when()
-		id := profileScheduleID(name)
-		add := func() {
-			if wh == "" {
-				base = ""
-				refresh()
-				w.a.toast(i18n.T("Schedule removed for ") + name)
-				return
-			}
-			w.a.call("rule.add", map[string]any{"id": id, "when": wh, "apply": []string{name}}, nil, func(err error) {
-				if err != nil {
-					w.a.toast(err.Error())
-					return
-				}
-				base = wh
-				refresh()
-				w.a.toast(name + i18n.T(" will apply at ") + wh)
-			})
-		}
-		// drop the old rule first; "no rule" is the normal first-time answer, so ignore it
-		w.a.call("rule.rm", map[string]any{"id": id}, nil, func(error) { add() })
-	})
-
-	box := gtk.NewBox(gtk.OrientationHorizontal, 6)
-	box.SetVAlign(gtk.AlignCenter)
-	box.Append(combo)
-	box.Append(entry)
-	box.Append(save)
-	return box
-}
 
 // addStarterProfiles writes two conservative examples for every monitor; unsupported fields are skipped on apply.
 func (w *window) addStarterProfiles(btn *gtk.Button) {
@@ -448,9 +366,9 @@ func buildAutomation(w *window) *adw.PreferencesPage {
 	a.loadZones()
 
 	rules := adw.NewPreferencesGroup()
-	rules.SetTitle(i18n.T("Rules"))
-	rules.SetDescription(i18n.T("When something happens, apply a profile"))
-	add := gtk.NewButtonWithLabel(i18n.T("Add…"))
+	rules.SetTitle(i18n.T("Schedules and rules"))
+	rules.SetDescription(i18n.T("Apply a profile at sunset, sunrise, a set time, or when a monitor connects"))
+	add := gtk.NewButtonWithLabel(i18n.T("Add schedule…"))
 	add.SetVAlign(gtk.AlignCenter)
 	add.ConnectClicked(func() { w.addRuleDialog() })
 	rules.SetHeaderSuffix(add)
@@ -461,6 +379,9 @@ func buildAutomation(w *window) *adw.PreferencesPage {
 	sc.SetDescription(i18n.T("Global shortcuts are assigned in System Settings → Shortcuts → DDC Deck"))
 	a.shortcutsGroup = sc
 
+	if w.eyeSched != nil {
+		return prefsPage(auto, w.eyeSched, rules, sc)
+	}
 	return prefsPage(auto, rules, sc)
 }
 
@@ -510,7 +431,7 @@ func (a *App) refreshAutomation() {
 					sub += " · " + rule.Display
 				}
 				if rule.ID == bluelightScheduleID {
-					sub += " · from the Eye care schedule on the Display tab"
+					sub += " · from the Blue light schedule above"
 				}
 				r.SetSubtitle(sub)
 				apply := rule.Apply
